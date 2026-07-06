@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+	<title>Tradegate BSX</title>
+
+	<meta http-equiv="Content-Type"    content="text/html; charset=iso-8859-1" />
+	<meta http-equiv="Expires"         content="Mon, 06 Jul 2026 15:08:51 GMT" />
+	<meta http-equiv="Last-Modified"   content="Mon, 06 Jul 2026 15:08:46 GMT" />
+	<meta http-equiv="Cache-Control"   content="no-cache" />
+
+	<meta name="description"           content="Tradegate BSX, US8740391003, Taiwan Semiconduct.Manufact.Co ADRs" />
+	<meta name="msapplication-config"  content="none" />
+
+	<meta name="apple-itunes-app"      content="app-id=451453050" />
+	<meta name="google-play-app"       content="app-id=de.boersefrankfurt.tradegate" />
+
+	<link rel="shortcut icon"    href="/images/favicon.png" />
+
+	<link href="css/my_layout.css?260101" rel="stylesheet" type="text/css" />
+
+
+	<script type="text/javascript" src="javascript/jquery.min.js?260101"></script>
+	<script type="text/javascript" src="javascript/tradegate.js?260101"></script>
+
+	<script type="text/javascript">
+		var lang = "de";
+		var typid = 1;
+		var anleihentypid = 2;
+		var etptypid = 3;
+		var UTCVersatz = 2;
+		var servertime = 1783350526;
+		var clienttime = new Date();
+		var offset = 10000;
+		var javascript_option = "";
+		var isin = "US8740391003";
+		var index_isin = "US8740391003";
+
+		var chart_url = "/images/charts";
+		var json_url  = "/json";
+		var orderbuch_url = "refresh.php?isin=";
+		var umsaetze_url  = "umsaetze.php?isin=";
+		var umsaetze_url2 = "&id=";
+		var aktualisiere_titel = true;
+		var markiere_underlyings = 1;
+		var json_version = "1.2";
+
+		$(window).on("load", function() {
+			initTradegate();
+			initOrderbuch('US8740391003', '');thresholdTEUR = 1000;		});
+	</script>
+
+	<script src="javascript/orderbuch.js?260101" type="text/javascript" defer></script>
+</head>
+<body>
+
+
+<div id="page_wrapper4">
+	<div id="page_wrapper2">
+		<div id="page_margins">
+			<div id="page">
+<div id="header">
+	<div id="topnav">
+		<a href="/orderbuch.php?lang=en&amp;isin=US8740391003" hreflang="en" id="href_en">english</a>
+	</div>
+
+	<h1><a href="/" name="top"><img id="tglogo" src="images/tgbsx_logo.svg" alt="Tradegate BSX" /></a></h1>
+
+	<div id="menu">
+		<a
+		id="menu_de_shares"   href="/"                          alt="Aktien"           class="menu_de_active"></a><span class="menu_de_slash"></span><a
+		id="menu_de_warrants" href="/index.php?art=zertifikate" alt="Zertifikate" ></a><span class="menu_de_slash"></span><a
+		id="menu_de_bonds"    href="/index.php?art=anleihen"    alt="Anleihen"    ></a><span class="menu_de_slash"></span><a
+		id="menu_de_etps"     href="/index.php?art=etp"         alt="ETPs"        ></a><span class="menu_de_slash"></span><a
+		id="menu_de_funds"    href="/index.php?art=fonds"       alt="Fonds"       ></a><span class="menu_de_slash"></span><a
+		id="menu_de_trading"  href="/orderbuch_handeln.php"     alt="Zum Handel"  ></a><span class="menu_de_slash"></span><a
+		id="menu_de_about"    href="/about/"                    alt="Uber uns" target="_blank"></a>
+	</div>
+</div>
+<script type="text/javascript">
+	var securityName = "Taiwan Semiconduct.Manufact.Co ADRs";
+</script>
+
+<div id="main">
+	<div id="col1">
+		<div id="col1_content" class="clearfix">
+							<h2>Taiwan Semiconduct.Manufact.Co ADRs</h2>
+				<ul class="tab-nav full">
+					<li class="first active">Information</li>
+											<li class="hoverlink"><a href="orderbuch_umsaetze.php?isin=US8740391003">letzte Ums&auml;tze</a></li>
+										<li class="hoverlink buy_sell"><a href="orderbuch_handeln.php?kaufen&amp;isin=US8740391003" rel="nofollow">kaufen</a></li>
+											<li class="hoverlink buy_sell"><a href="orderbuch_handeln.php?verkaufen&amp;isin=US8740391003" rel="nofollow">verkaufen</a></li>
+									</ul>
+
+				<table class="full grid noHeadBorder">
+					<colgroup>
+						<col width="110" />
+						<col width="110" />
+						<col width="*" />
+						<col width="176" />
+					</colgroup>
+					<tr>
+						<th title="48601">WKN</th>
+						<th>K&uuml;rzel</th>
+						<th>ISIN</th>
+						<th>Handelsw&auml;hrung</th>
+					</tr>
+					<tr>
+						<td ondblclick="copyToClipboard(this)">909800</td>
+						<td ondblclick="copyToClipboard(this)">TSFA</td>
+						<td ondblclick="copyToClipboard(this)">US8740391003</td>
+						<td>EUR</td>
+					</tr>
+				</table>
+
+								<div id="ListLeft">
+											<ul class="tab-nav">
+							<li id="reiter_intraday" class="first active"><a href="javascript:;" onclick="hiddenAll();displayImg('intraday');">Intraday</a></li>							<li id="reiter_woche"    class=""><a href="javascript:;" onclick="hiddenAll();displayImg('woche');">1 Woche</a></li>							<li id="reiter_monat"   ><a href="javascript:;" onclick="hiddenAll();displayImg('monat');" >1 Monat </a></li>														<li id="reiter_jahr"    ><a href="javascript:;" onclick="hiddenAll();displayImg('jahr' );" >1 Jahr  </a></li>							<li id="reiter_jahr5"   ><a href="javascript:;" onclick="hiddenAll();displayImg('jahr5');" >5 Jahre </a></li>																																																</ul>
+						<div class="block">
+							<span>Taiwan Semiconduct.Manufact.Co ADRs</span>
+															<img id="intraday" src="/images/charts/intraday/US8740391003.png?1783350480" alt="Chart Taiwan Semiconduct.Manufact.Co ADRs - Intraday" style="" />
+																						<img id="woche"    src="/images/charts/woche/US8740391003.png?1783350480" alt="Chart Taiwan Semiconduct.Manufact.Co ADRs - 1 Woche"  style="display: none;" />
+																						<img id="monat"    src="/images/charts/monat/US8740391003.png?1783350480" alt="Chart Taiwan Semiconduct.Manufact.Co ADRs - 1 Monat"  style="display: none;" loading="lazy" />
+																													<img id="jahr"     src="/images/charts/jahr/US8740391003.png?1783350480" alt="Chart Taiwan Semiconduct.Manufact.Co ADRs - 1 Jahr"   style="display: none;" loading="lazy" />
+																						<img id="jahr5"    src="/images/charts/5jahre/US8740391003.png?1783350480" alt="Chart Taiwan Semiconduct.Manufact.Co ADRs - 5 Jahre"  style="display: none;" loading="lazy" />
+													</div>
+					
+									</div>
+				
+				<div id="ListRight">
+					<table class="full fixed right lines marketdata">
+						<colgroup>
+															<col width="*" />
+								<col width="*" />
+													</colgroup>
+													<tr class="Bid">
+								<th>Bid</th>
+								<td class="longprice"><strong id="bid">398,00</strong></td>
+							</tr>
+							<tr class="Ask">
+								<th>Ask</th>
+								<td class="longprice"><strong id="ask">399,50</strong></td>
+							</tr>
+											</table>
+
+											<table class="full fixed right lines marketdata">
+							<colgroup>
+								<col width="*" />
+								<col width="*" />
+							</colgroup>
+							<tr>
+								<th>Bid Size</th>
+								<td id="bidsize" class="longprice">700</td>
+							</tr>
+							<tr>
+								<th>Ask Size</th>
+								<td id="asksize" class="longprice">700</td>
+							</tr>
+							<tr>
+								<th>High</th>
+								<td id="high" class="longprice">403,00</td>
+							</tr>
+							<tr>
+								<th>Low</th>
+								<td id="low" class="longprice">384,00</td>
+							</tr>
+							<tr>
+								<th>Last</th>
+								<td class="longprice"><strong id="last">399,00</strong></td>
+							</tr>
+							<tr >
+								<th>Change</th>
+								<td id="delta" class="top longprice">+1,01%</td>
+							</tr>
+						</table>
+					
+											<table class="full right lines marketdata">
+							<colgroup>
+								<col width="50%" />
+								<col width="50%" />
+							</colgroup>
+							<tr>
+							<th>Umsatz</th>
+								<td id="umsatz" class="longprice">5&nbsp;098 TEUR</td>
+							</tr>
+							<tr>
+								<th>St&uuml;ck</th>
+								<td id="stueck" class="longprice">13&nbsp;035</td>
+							</tr>
+							<tr>
+								<th>&#216;-Preis</th>
+								<td class="longprice"><strong id="preis">391,0761</strong></td>
+							</tr>
+						</table>
+
+						<p class="cursor">
+							<span id="state" style="display:none;">vom Handel ausgesetzt<br /></span>
+							<span id="handelssystemsegment">Segment: Freiverkehr<br /></span>
+														<span id="indication" style="display:none;">Unverbindliche Taxe<br /></span>
+							<span style="display:none;">Gattung nur in Frankreich handelbar<br /></span>
+							<span id="secstate" style="display:none;">Handelsunterbrechung<br /></span>
+							<span id="vola" style="display:none;">Volatilit&auml;tsunterbrechung<br /></span>
+							<span id="knockedout" style="display:none;">Ausgestoppt<br /></span>
+							<span id="ruecknahme" style="display:none;">R&uuml;ckkaufphase<br /></span>
+													</p>
+									</div>
+
+				
+			
+		
+		<div id="copy">
+	Copyright &copy; 2026 Tradegate Exchange GmbH<br />
+	Bitte beachten Sie das <a href="regelwerk.php" class="default">Regelwerk</a><br />
+	<br />
+
+	DAX&reg;,
+	MDAX&reg;,
+	TecDAX&reg; und
+	SDAX&reg;
+	sind eingetragene Markenzeichen der ISS STOXX Index GmbH<br />
+
+	EURO STOXX&reg;-Werte
+	bezeichnet Werte der Marke &bdquo;EURO STOXX&ldquo; der STOXX Limited und/oder ihrer Lizenzgeber <br />
+	TRADEGATE&reg; ist eine eingetragene Marke der Tradegate AG<br />
+	<br />
+
+	<p class="upper">
+		Kurse in EUR; Fremdw&auml;hrungsanleihen in der jeweiligen W&auml;hrung<br />
+		Zeitangaben in CEST (UTC+2)
+	</p>
+</div>
+
+<div id="footer">
+	<table>
+		<tr>
+			<td>
+				<a href="kontakt.php">Kontakt</a>
+			</td>
+			<td>
+				<a href="regelwerk.php">Regelwerk/Bekanntmachungen</a>
+			</td>
+			<td>
+				<a href="handelskalender.php">Handelskalender</a>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				<a href="impressum.php">Impressum</a>
+			</td>
+			<td>
+				<a href="nutzungsbedingung.php">Nutzungsbedingungen</a>
+			</td>
+			<td>
+				<a href="datenschutz.php">Datenschutzerkl&auml;rung</a>
+			</td>
+		</tr>
+	</table>
+</div>	</div>
+</div>
+<div id="col2">
+	<div id="col2_content" class="clearfix">
+		<div id="kurssuche">
+			<h2 class="wie_bild">Kurssuche</h2>
+			<form id="suchformular" name="suchformular" action="kurssuche.php" method="get" accept-charset="ISO-8859-1">
+				<input name="suche" type="search" id="isin" placeholder="ISIN / WKN / Name" onfocus="this.placeholder='';" onblur="this.placeholder='ISIN / WKN / Name';" required />
+				<button id="search" type="submit" alt="suchen" class="absenden">Suchen &nbsp; &nbsp; &nbsp; &nbsp; &gt;</button>
+			</form>
+		</div>
+
+		
+					<div id="aktien">
+				<h2 class="kurslisten">Kurslisten Aktien</h2>
+				<ul class="sidebar">
+																<li><a href="indizes.php?index=DE000A1EXRV0">DAX&reg;-Werte</a></li>
+											<li><a href="indizes.php?index=DE000A1EXRW8">MDAX&reg;-Werte</a></li>
+											<li><a href="indizes.php?index=DE000A1EXRY4">TecDAX&reg;-Werte</a></li>
+											<li><a href="indizes.php?index=DE000A1EXRX6">SDAX&reg;-Werte</a></li>
+											<li><a href="indizes.php?index=EU0009658145">EURO STOXX 50&reg;-Werte</a></li>
+											<li><a href="indizes.php?index=US0000000002">US-Toptitel</a></li>
+										<li><a href="indizes.php?index=TG0000000001">Handel per Erscheinen</a></li>
+					<li><a href="indizes.php">alle Werte A-Z</a></li>
+				</ul>
+			</div>
+		
+		
+		
+		
+		
+					<div id="auswahl">
+				<h2 class="wie_bild"><a href="publikationen.php">Publikationen</a></h2>
+				<ul class="sidebar">
+					<li>
+						<a class="presse" href="docs/260703_TBSX_Umsatzstatistik_Juni.pdf" target="_blank">
+							<span>Umsatzstatistik f&uuml;r <nobr>Juni 2026</nobr></span>
+						</a>
+					</li>
+				</ul>
+			</div>
+		
+		<div id="handelszeit_div">
+			Handelszeit<br />
+							7:30 bis 22:00 Uhr					</div>
+
+		<div id="news">
+			<h2 class="wie_bild"><a href="finanz-nachrichten.php">Finanz-Nachrichten</a></h2>
+			<ul class="sidebar">
+															<li id="newsid_0" style="display:none">20260706005248</li>
+										<li>
+						<div id="NEWS_0_li" data-newsid="20260706005248">
+							<a id="NEWS_0" href="finanz-nachrichten-detail.php?id=20260706005248">
+								<span id="NEWS_0_newstime">06.07.2026 / 17:05 Uhr</span><br />
+								<span id="NEWS_0_headline">EQS-<wbr>PVR: AT&amp;S Austria Technologie &amp; Systemtechnik...</span>
+							</a>
+						</div>
+					</li>
+														<li>
+						<div id="NEWS_1_li" data-newsid="20260706005119">
+							<a id="NEWS_1" href="finanz-nachrichten-detail.php?id=20260706005119">
+								<span id="NEWS_1_newstime">06.07.2026 / 16:44 Uhr</span><br />
+								<span id="NEWS_1_headline">TAGESVORSCHAU/<wbr>Dienstag, 7. Juli (vorl&auml;ufige Fassung)...</span>
+							</a>
+						</div>
+					</li>
+														<li>
+						<div id="NEWS_2_li" data-newsid="20260706005093">
+							<a id="NEWS_2" href="finanz-nachrichten-detail.php?id=20260706005093">
+								<span id="NEWS_2_newstime">06.07.2026 / 16:36 Uhr</span><br />
+								<span id="NEWS_2_headline">EQS-<wbr>DD: AUSTRIACARD HOLDINGS AG: Meldung und &ouml;ffentliche...</span>
+							</a>
+						</div>
+					</li>
+														<li>
+						<div id="NEWS_3_li" data-newsid="20260706005076">
+							<a id="NEWS_3" href="finanz-nachrichten-detail.php?id=20260706005076">
+								<span id="NEWS_3_newstime">06.07.2026 / 16:31 Uhr</span><br />
+								<span id="NEWS_3_headline">EQS-<wbr>DD: AUSTRIACARD HOLDINGS AG: Meldung und &ouml;ffentliche...</span>
+							</a>
+						</div>
+					</li>
+														<li>
+						<div id="NEWS_4_li" data-newsid="20260706004649">
+							<a id="NEWS_4" href="finanz-nachrichten-detail.php?id=20260706004649">
+								<span id="NEWS_4_newstime">06.07.2026 / 15:47 Uhr</span><br />
+								<span id="NEWS_4_headline">M&Auml;RKTE USA/<wbr>Etwas fester -<wbr> Dow auf Rekordhoch -<wbr>...</span>
+							</a>
+						</div>
+					</li>
+								<li class="last"><a href="finanz-nachrichten.php">alle Meldungen</a></li>
+			</ul>
+		</div>
+	</div>
+
+	<div id="ie_clearing"> &#160; </div>
+</div>
+<div id="col3">
+	<div id="col3_content" class="clearfix">
+				<div id="tdt">
+			<h2 class="wie_bild">Titel des Tages</h2>
+			<span class="markieren">
+				<a class="TdT_link" href="orderbuch.php?isin=DE0007030009">
+					<span id="TdT_name" class="title hyphens">Rheinmetall AG&nbsp;<img src="images/basiswert.png" class="basiswert" title="Zertifikate" /></span>
+					<span id="TdT_askbidtrades">
+						Bid: 1 124,00 <br />						Ask: 1 124,20<br />
+						St&uuml;ckzahl:
+						37&nbsp;818					</span><br />
+					<span id="TdT_delta" class="change top">+2,70%</span>
+				</a>
+			</span>
+			<a class="TdT_link" href="orderbuch.php?isin=DE0007030009"><img id="TdT_img" height="69" width="145" src="/images/charts/tdt/DE0007030009.png?1783350480" alt="DE0007030009" /></a>
+		</div>
+		
+		<div id="link_app">
+			<h2 class="wie_bild">Apps</h2>
+			<a id="app_ios"     target="_blank" href="https://apps.apple.com/de/app/börse/id451453050"
+			   title="Tradegate BSX App f&uuml;r iOS">
+				<img src="images/apple-store.svg" alt="Tradegate BSX App f&uuml;r iOS" />
+			</a>
+			<a id="app_android" target="_blank" href="https://play.google.com/store/apps/details?id=de.boersefrankfurt.tradegate"
+			   title="Tradegate BSX App f&uuml;r Android">
+				<img src="images/google-play.svg" alt="Tradegate BSX App f&uuml;r Android" />
+			</a>
+		</div>
+
+		<div id="top-titel">
+			<h2 class="wie_bild" title="">Top 5 Umsatz</h2>
+			<ul class="sidebar">
+									<li id="TT1_li">
+						<a href="orderbuch.php?isin=DE0007030009" id="TT1" isin="DE0007030009">
+							<span class="title hyphens" id="TT1_name">Rheinmetall AG&nbsp;<img src="images/basiswert.png" class="basiswert" title="Zertifikate" /></span>
+							<span id="TT1_umsatz">Bid: 1 124,00<br />Ask: 1 124,20<br />
+							Umsatz: 42&nbsp;082 TEUR</span>
+						</a>
+					</li>
+									<li id="TT2_li">
+						<a href="orderbuch.php?isin=US5951121038" id="TT2" isin="US5951121038">
+							<span class="title hyphens" id="TT2_name">Micron Technology Inc.&nbsp;<img src="images/basiswert.png" class="basiswert" title="Zertifikate" /></span>
+							<span id="TT2_umsatz">Bid: 874,20 / Ask: 874,60<br />
+							Umsatz: 32&nbsp;527 TEUR</span>
+						</a>
+					</li>
+									<li id="TT3_li">
+						<a href="orderbuch.php?isin=DE000ENER6Y0" id="TT3" isin="DE000ENER6Y0">
+							<span class="title hyphens" id="TT3_name">Siemens Energy AG&nbsp;<img src="images/basiswert.png" class="basiswert" title="Zertifikate" /></span>
+							<span id="TT3_umsatz">Bid: 169,30 / Ask: 169,34<br />
+							Umsatz: 26&nbsp;506 TEUR</span>
+						</a>
+					</li>
+									<li id="TT4_li">
+						<a href="orderbuch.php?isin=DE000BAY0017" id="TT4" isin="DE000BAY0017">
+							<span class="title hyphens" id="TT4_name">Bayer AG&nbsp;<img src="images/basiswert.png" class="basiswert" title="Zertifikate" /></span>
+							<span id="TT4_umsatz">Bid: 51,68 / Ask: 51,70<br />
+							Umsatz: 20&nbsp;332 TEUR</span>
+						</a>
+					</li>
+									<li id="TT5_li">
+						<a href="orderbuch.php?isin=US5949181045" id="TT5" isin="US5949181045">
+							<span class="title hyphens" id="TT5_name">Microsoft Corp.&nbsp;<img src="images/basiswert.png" class="basiswert" title="Zertifikate" /></span>
+							<span id="TT5_umsatz">Bid: 337,65 / Ask: 337,80<br />
+							Umsatz: 18&nbsp;960 TEUR</span>
+						</a>
+					</li>
+							</ul>
+		</div>
+
+		<div id="realtime">
+			<span id="rt_title">Realtime Quotes<br />Letzte Aktualisierung:</span><br />
+			<span id="rt_datum">06.07.2026</span> @
+			<span id="rt_zeit">17:08:46</span>
+		</div>
+
+		<div id="fastmarket" style="display:none;">
+			Fastmarket
+		</div>
+	</div>
+</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</body>
+</html>

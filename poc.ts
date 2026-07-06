@@ -51,6 +51,8 @@ export interface Position {
     Price?: number;
     TotalValue?: number;
     PendingCash?: number;
+    TradegateTicker?: string; // Storing extracted symbol
+    Currency?: string;        // Storing extracted currency
 }
 
 // Add a routing map for assets that Tradegate can't handle
@@ -169,7 +171,7 @@ async function fetchAndEnrichPositions(positions: Position[]): Promise<Position[
                 const isinOrSymbol = pos.Symbol;
 
                 if (isinOrSymbol === "-") {
-                    return { symbol: isinOrSymbol, price: 0 };
+                    return { symbol: isinOrSymbol, price: 0, tgTicker: undefined, currency: undefined };
                 }
 
                 const routingConfig = SPECIAL_ROUTING[isinOrSymbol];
@@ -184,7 +186,9 @@ async function fetchAndEnrichPositions(positions: Position[]): Promise<Position[
                         const json = (await response.json()) as { data: { amount: string } };
                         return {
                             symbol: isinOrSymbol,
-                            price: parseFloat(json.data.amount)
+                            price: parseFloat(json.data.amount),
+                            tgTicker: undefined,
+                            currency: "EUR"
                         };
                     }
 
@@ -203,10 +207,10 @@ async function fetchAndEnrichPositions(positions: Position[]): Promise<Position[
                         // Look for the standard schema.org price tag Ariva uses
                         const priceMatch = html.match(/itemprop="price" content="([\d.]+)"/);
                         if (priceMatch && priceMatch[1]) {
-                            return { symbol: isinOrSymbol, price: parseFloat(priceMatch[1]) };
+                            return { symbol: isinOrSymbol, price: parseFloat(priceMatch[1]), tgTicker: undefined, currency: "EUR" };
                         } else {
                             console.warn(`⚠️ No price found on Aggregator for: ${pos.Name} (${isinOrSymbol})`);
-                            return { symbol: isinOrSymbol, price: 0 };
+                            return { symbol: isinOrSymbol, price: 0, tgTicker: undefined, currency: undefined };
                         }
                     }
 
@@ -215,20 +219,35 @@ async function fetchAndEnrichPositions(positions: Position[]): Promise<Position[
                     if (!response.ok) throw new Error(`Tradegate HTTP ${response.status}`);
 
                     const html = await response.text();
-                    const lastPriceMatch = html.match(/id="last">([\d\s.,]+)<\//);
 
+                    // 1. Fetch current price
+                    let price = 0;
+                    const lastPriceMatch = html.match(/id="last">([\d\s.,]+)<\//);
                     if (lastPriceMatch && lastPriceMatch[1]) {
                         const rawPriceStr = lastPriceMatch[1].replace(/\s/g, '').replace(',', '.');
-                        const price = parseFloat(rawPriceStr);
-                        return { symbol: isinOrSymbol, price };
+                        price = parseFloat(rawPriceStr);
                     } else {
                         console.warn(`⚠️ No price found on Tradegate for: ${pos.Name} (${isinOrSymbol})`);
-                        return { symbol: isinOrSymbol, price: 0 };
                     }
+
+                    // 2. Extract Tradegate Symbol (Kürzel) and Currency
+                    let tgTicker: string | undefined = undefined;
+                    let currency: string | undefined = undefined;
+
+                    // Looks for `<td...>KÜRZEL</td> <td...>ISIN</td> <td...>CURRENCY</td>`
+                    const metaRegex = new RegExp(`<td[^>]*>([^<]+)<\/td>\\s*<td[^>]*>${isinOrSymbol}<\/td>\\s*<td[^>]*>([^<]+)<\/td>`, 'i');
+                    const metaMatch = html.match(metaRegex);
+
+                    if (metaMatch) {
+                        tgTicker = metaMatch[1].trim();
+                        currency = metaMatch[2].trim();
+                    }
+
+                    return { symbol: isinOrSymbol, price, tgTicker, currency };
 
                 } catch (innerErr) {
                     console.warn(`⚠️ Error fetching data for ${pos.Name} (${isinOrSymbol}):`, (innerErr as Error).message);
-                    return { symbol: isinOrSymbol, price: 0 };
+                    return { symbol: isinOrSymbol, price: 0, tgTicker: undefined, currency: undefined };
                 }
             })
         );
@@ -246,7 +265,9 @@ async function fetchAndEnrichPositions(positions: Position[]): Promise<Position[
             return {
                 ...pos,
                 Price: finalPrice,
-                TotalValue: Math.round((shareValue + pending) * 100) / 100
+                TotalValue: Math.round((shareValue + pending) * 100) / 100,
+                TradegateTicker: found?.tgTicker,
+                Currency: found?.currency
             };
         });
 
@@ -337,7 +358,7 @@ function calculateTradeROI(transactions: Transaction[], enrichedPositions: Posit
 }
 
 function plotPortfolioAllocation(positions: Position[], grandTotal: number) {
-    console.log("\n🥧 PORTFOLIO ALLOCATION:");
+    console.log("\n🥧 PORT PORTFOLIO ALLOCATION:");
     console.log("------------------------------------------------------------------");
 
     if (grandTotal <= 0) {
@@ -377,7 +398,7 @@ function plotPortfolioAllocation(positions: Position[], grandTotal: number) {
 // --- INDIVIDUAL ASSET HISTORY & TRADE PLOTTING ---
 async function plotAssetHistories(positions: Position[], transactions: Transaction[]) {
     console.log("\n📈 ASSET PRICE EVOLUTION & TRADE TIMELINES:");
-    console.log("Legend: 🔵 Price History | 🟢 Buy Point | 🔴 Sell Point");
+    console.log("Legend: 🔵 Price History (Yahoo) | 🔴 Price History (Local trades only) | 🟢 Buy Point | 🔴 Sell Point");
     console.log("------------------------------------------------------------------");
 
     for (const pos of positions) {
@@ -387,29 +408,95 @@ async function plotAssetHistories(positions: Position[], transactions: Transacti
 
         if (posTxs.length === 0) continue;
 
+        // --- ADDED TIMEOUT: Be polite to Yahoo Finance's firewall ---
+        await new Promise(resolve => setTimeout(resolve, 800));
+
         let apiData: Record<string, number> = {};
+        let hasYahooData = false;
+
         try {
             let ticker = pos.Symbol;
 
-            // 1. Resolve ISIN to Yahoo Ticker
+            // 1. Resolve to a working Yahoo Ticker
             if (ticker === "BTC" || ticker === "ETH") {
                 ticker += "-EUR";
-            } else if (ticker.length === 12) {
-                // Ask Yahoo Search to translate the ISIN
-                const searchRes = await fetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${ticker}`);
-                if (searchRes.ok) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const searchJson = await searchRes.json() as any;
-                    const quotes = searchJson?.quotes || [];
-                    if (quotes.length > 0) {
-                        // Prioritize German/European exchanges so historical prices are in EUR!
-                        const eurQuote = quotes.find((q: any) =>
-                            q.exchange === 'FRA' || q.exchange === 'GER' ||
-                            q.symbol.endsWith('.F') || q.symbol.endsWith('.DE') || q.symbol.endsWith('.PA')
-                        );
-                        ticker = eurQuote ? eurQuote.symbol : quotes[0].symbol;
+            } else if (pos.TradegateTicker || ticker.length === 12) {
+                const candidateSymbols: string[] = [];
+
+                if (pos.TradegateTicker && pos.TradegateTicker !== "undefined") {
+                    const base = pos.TradegateTicker;
+                    // Gather all German/European exchange suffixes
+                    candidateSymbols.push(`${base}.DE`, `${base}.F`, `${base}.MU`, `${base}.HM`, `${base}.SG`, `${base}.DU`, `${base}.HA`);
+                }
+
+                // Append any results from Yahoo ISIN search as fallbacks
+                let isinFallback = "";
+                if (ticker.length === 12) {
+                    try {
+                        const searchRes = await fetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${ticker}`);
+                        if (searchRes.ok) {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const searchJson = await searchRes.json() as any;
+                            const quotes = searchJson?.quotes || [];
+                            for (const q of quotes) {
+                                if (q.symbol && !candidateSymbols.includes(q.symbol)) {
+                                    candidateSymbols.push(q.symbol);
+                                }
+                                // STRICTER EUR FALLBACK: Only accept European exchanges if batch query fails
+                                if (!isinFallback && (q.exchange === 'FRA' || q.exchange === 'GER' || q.exchange === 'PAR' || q.exchange === 'AMS' || q.symbol.endsWith('.F') || q.symbol.endsWith('.DE') || q.symbol.endsWith('.PA') || q.symbol.endsWith('.AS') || q.symbol.endsWith('.MI'))) {
+                                    isinFallback = q.symbol;
+                                }
+                            }
+                            // If we still don't have a EUR fallback, pick the first one just so it doesn't crash
+                            if (!isinFallback && quotes.length > 0) isinFallback = quotes[0].symbol;
+                        }
+                    } catch (e) {
+                        console.log(`  [DEBUG] ISIN search failed: ${(e as Error).message}`);
                     }
                 }
+
+                // Default to best available fallback just in case quote fetching fails
+                let bestSymbol = isinFallback || candidateSymbols[0] || ticker;
+
+                if (candidateSymbols.length > 0) {
+                    // Ask Yahoo for live prices of all candidates to find the one closest to our local Tradegate price
+                    try {
+                        const batch = candidateSymbols.join(',');
+                        const quoteRes = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${batch}`, {
+                            headers: { "User-Agent": "Mozilla/5.0" }
+                        });
+
+                        if (quoteRes.ok) {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const quoteJson = await quoteRes.json() as any;
+                            const results = quoteJson?.quoteResponse?.result || [];
+
+                            let smallestDiff = Infinity;
+
+                            for (const r of results) {
+                                // Match currency if possible, prioritize closest matching regular market price
+                                if (r.currency === 'EUR' && r.regularMarketPrice) {
+                                    const diff = Math.abs(r.regularMarketPrice - (pos.Price || 0));
+                                    if (diff < smallestDiff) {
+                                        smallestDiff = diff;
+                                        bestSymbol = r.symbol;
+                                    }
+                                }
+                            }
+
+                            if (smallestDiff !== Infinity) {
+                                console.log(`  [DEBUG] Resolved ${bestSymbol} from batch via price matching (Diff: €${smallestDiff.toFixed(2)})`);
+                            } else {
+                                console.log(`  [DEBUG] No EUR match in quote batch. Falling back to: ${bestSymbol}`);
+                            }
+                        } else {
+                            console.log(`  [DEBUG] Yahoo Quote API HTTP ${quoteRes.status}. Falling back to strictly filtered: ${bestSymbol}`);
+                        }
+                    } catch (e) {
+                        console.log(`  [DEBUG] Batch quote fetch failed: ${(e as Error).message}. Falling back to strictly filtered: ${bestSymbol}`);
+                    }
+                }
+                ticker = bestSymbol;
             }
 
             // 2. Fetch the actual chart data using the resolved ticker
@@ -420,6 +507,7 @@ async function plotAssetHistories(positions: Position[], transactions: Transacti
                     const json = await res.json() as any;
                     const result = json?.chart?.result?.[0];
                     if (result) {
+                        hasYahooData = true; // Mark successfully fetched external data
                         const timestamps = result.timestamp as number[];
                         const closes = result.indicators.quote[0].close as (number | null)[];
 
@@ -485,15 +573,21 @@ async function plotAssetHistories(positions: Position[], transactions: Transacti
 
         console.log(`\n🔹 ${pos.Name} (${pos.Symbol})`);
 
+        if (!hasYahooData) {
+            console.log("  ⚠️ [No Yahoo history mapped. Chart rendered from scattered local trades]");
+        }
+
         if (priceSeries.length < 2 || !hasDataVariability) {
             console.log("  [Insufficient price movement or history to plot line chart]");
             continue;
         }
 
         try {
+            const chartColor = hasYahooData ? asciichart.cyan : asciichart.red;
+
             console.log(asciichart.plot(priceSeries, {
                 height: 10,
-                colors: [asciichart.cyan],
+                colors: [chartColor],
                 format: (x) => `€${x.toFixed(2).padStart(8)}`
             }));
 
