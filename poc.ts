@@ -374,6 +374,149 @@ function plotPortfolioAllocation(positions: Position[], grandTotal: number) {
     console.log("------------------------------------------------------------------\n");
 }
 
+// --- INDIVIDUAL ASSET HISTORY & TRADE PLOTTING ---
+async function plotAssetHistories(positions: Position[], transactions: Transaction[]) {
+    console.log("\n📈 ASSET PRICE EVOLUTION & TRADE TIMELINES:");
+    console.log("Legend: 🔵 Price History | 🟢 Buy Point | 🔴 Sell Point");
+    console.log("------------------------------------------------------------------");
+
+    for (const pos of positions) {
+        const posTxs = transactions
+            .filter(t => (t.symbol === pos.Symbol || t.name === pos.Name) && t.price && t.date)
+            .sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime());
+
+        if (posTxs.length === 0) continue;
+
+        let apiData: Record<string, number> = {};
+        try {
+            let ticker = pos.Symbol;
+
+            // 1. Resolve ISIN to Yahoo Ticker
+            if (ticker === "BTC" || ticker === "ETH") {
+                ticker += "-EUR";
+            } else if (ticker.length === 12) {
+                // Ask Yahoo Search to translate the ISIN
+                const searchRes = await fetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${ticker}`);
+                if (searchRes.ok) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const searchJson = await searchRes.json() as any;
+                    const quotes = searchJson?.quotes || [];
+                    if (quotes.length > 0) {
+                        // Prioritize German/European exchanges so historical prices are in EUR!
+                        const eurQuote = quotes.find((q: any) =>
+                            q.exchange === 'FRA' || q.exchange === 'GER' ||
+                            q.symbol.endsWith('.F') || q.symbol.endsWith('.DE') || q.symbol.endsWith('.PA')
+                        );
+                        ticker = eurQuote ? eurQuote.symbol : quotes[0].symbol;
+                    }
+                }
+            }
+
+            // 2. Fetch the actual chart data using the resolved ticker
+            if (ticker !== "-" && ticker !== pos.Symbol) {
+                const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=2y`);
+                if (res.ok) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const json = await res.json() as any;
+                    const result = json?.chart?.result?.[0];
+                    if (result) {
+                        const timestamps = result.timestamp as number[];
+                        const closes = result.indicators.quote[0].close as (number | null)[];
+
+                        timestamps.forEach((ts, idx) => {
+                            if (closes[idx] != null) {
+                                const dateStr = new Date(ts * 1000).toISOString().split('T')[0];
+                                apiData[dateStr] = closes[idx] as number;
+                            }
+                        });
+                    }
+                }
+            }
+        } catch (e) {
+            // Silently ignore API failures
+        }
+
+        const startDate = new Date(posTxs[0].date.split('T')[0]);
+        const endDate = new Date();
+
+        const msPerDay = 1000 * 60 * 60 * 24;
+        let totalDays = Math.round((endDate.getTime() - startDate.getTime()) / msPerDay);
+        if (totalDays <= 0) totalDays = 1;
+
+        const MAX_POINTS = 60;
+        const stepDays = Math.max(1, Math.ceil(totalDays / MAX_POINTS));
+
+        const priceSeries: number[] = [];
+        let lastKnownPrice = Number(posTxs[0].price);
+        let hasDataVariability = false;
+
+        for (let i = 0; i <= MAX_POINTS; i++) {
+            const currentDate = new Date(startDate.getTime() + (i * stepDays * msPerDay));
+            if (currentDate > endDate && i > 0) break;
+
+            const bucketStart = new Date(currentDate.getTime() - (stepDays * msPerDay));
+
+            const txsInBucket = posTxs.filter(t => {
+                const tDate = new Date(t.date.split('T')[0]);
+                return tDate > bucketStart && tDate <= currentDate;
+            });
+
+            for (const t of txsInBucket) {
+                lastKnownPrice = Number(t.price);
+            }
+
+            let sweepDate = new Date(bucketStart.getTime() + msPerDay);
+            if (i === 0) sweepDate = new Date(currentDate);
+
+            while (sweepDate <= currentDate) {
+                const dateStr = sweepDate.toISOString().split('T')[0];
+                if (apiData[dateStr] !== undefined) {
+                    lastKnownPrice = apiData[dateStr];
+                }
+                sweepDate.setDate(sweepDate.getDate() + 1);
+            }
+
+            if (priceSeries.length > 0 && lastKnownPrice !== priceSeries[priceSeries.length - 1]) {
+                hasDataVariability = true;
+            }
+
+            priceSeries.push(lastKnownPrice);
+        }
+
+        console.log(`\n🔹 ${pos.Name} (${pos.Symbol})`);
+
+        if (priceSeries.length < 2 || !hasDataVariability) {
+            console.log("  [Insufficient price movement or history to plot line chart]");
+            continue;
+        }
+
+        try {
+            console.log(asciichart.plot(priceSeries, {
+                height: 10,
+                colors: [asciichart.cyan],
+                format: (x) => `€${x.toFixed(2).padStart(8)}`
+            }));
+
+            const sd = startDate.toISOString().split('T')[0];
+            const ed = endDate.toISOString().split('T')[0];
+            console.log(`  Timeline: ${sd} ➔ ${ed}\n`);
+
+            for (const t of posTxs) {
+                const tDate = t.date.split('T')[0];
+                if (["BUY", "PRIVATE_MARKET_BUY", "IPO_SUBSCRIPTION"].includes(t.type)) {
+                    console.log(`  🟢 ${tDate}: Bought at €${Number(t.price).toFixed(2)}`);
+                } else if (t.type === "SELL") {
+                    console.log(`  🔴 ${tDate}: Sold at €${Number(t.price).toFixed(2)}`);
+                }
+            }
+
+        } catch (err) {
+            console.log(`  [Asciichart formatting error: ${(err as Error).message}]`);
+        }
+    }
+    console.log("------------------------------------------------------------------\n");
+}
+
 // Execution Logic
 const filePath = process.argv[2];
 
@@ -493,6 +636,9 @@ async function main() {
         console.log("\n🚀 ROI PER TRADE (Sorted by Date):");
         console.log("----------------------------------");
         console.table(roiPerTrade);
+
+
+        await plotAssetHistories(positions, data);
 
     } catch (error) {
         console.error("❌ An unexpected error occurred:", error);
