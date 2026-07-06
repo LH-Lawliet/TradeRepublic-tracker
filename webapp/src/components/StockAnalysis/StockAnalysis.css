@@ -1,0 +1,70 @@
+.analysis-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    height: 90vh;
+}
+
+.analysis-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    select {
+        padding: var(--spacing-sm) 1vw;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        border: 0.1vh solid var(--border-color);
+        border-radius: var(--border-radius);
+    }
+}
+
+.positions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(20vw, 1fr));
+    gap: 2vw;
+    overflow-y: auto;
+    padding-bottom: var(--spacing-lg);
+}
+
+.position-card {
+    background: var(--bg-secondary);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    border: 0.1vh solid transparent;
+    transition: all 0.2s ease;
+
+    &:hover {
+        border-color: var(--accent-color);
+        transform: translateY(-0.5vh);
+    }
+
+    .card-top {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+    }
+
+    .name {
+        margin: var(--spacing-sm) 0;
+        font-size: 1.1rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .card-metrics {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5vh;
+        font-size: 0.9rem;
+
+        .total {
+            font-weight: bold;
+            color: var(--accent-color);
+            margin-top: 0.5vh;
+        }
+    }
+}

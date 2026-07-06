@@ -1,0 +1,63 @@
+/**
+ * Global Styles and CSS Variables.
+ * Enforcing vh/vw and rem units over px for fluid scaling.
+ */
+:root {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --accent-color: #3b82f6;
+    --accent-hover: #2563eb;
+    --positive-color: #22c55e;
+    --negative-color: #ef4444;
+    --border-color: #334155;
+    --border-radius: 0.5vw;
+    --spacing-sm: 1vh;
+    --spacing-md: 2vh;
+    --spacing-lg: 4vh;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, sans-serif;
+    height: 100vh;
+    width: 100vw;
+    overflow-x: hidden;
+}
+
+button {
+    background-color: var(--accent-color);
+    color: var(--text-primary);
+    border: none;
+    padding: var(--spacing-sm) 1.5vw;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.2s ease;
+
+    &:hover {
+        background-color: var(--accent-hover);
+    }
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: var(--spacing-md);
+
+    th,
+    td {
+        text-align: left;
+        padding: var(--spacing-sm) 1vw;
+        border-bottom: 0.1vh solid var(--border-color);
+    }
+
+    th {
+        color: var(--text-secondary);
+        font-weight: 600;
+    }
+}

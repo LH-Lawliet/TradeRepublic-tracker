@@ -1,0 +1,22 @@
+.uploader-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 80vh;
+}
+
+.upload-box {
+    border: 0.2vh dashed var(--border-color);
+    padding: var(--spacing-lg) 6vw;
+    border-radius: var(--border-radius);
+    background-color: var(--bg-secondary);
+    cursor: pointer;
+    font-size: 1.5rem;
+    color: var(--accent-color);
+    transition: all 0.2s ease;
+
+    &:hover {
+        border-color: var(--accent-color);
+        background-color: rgba(59, 130, 246, 0.1);
+    }
+}
