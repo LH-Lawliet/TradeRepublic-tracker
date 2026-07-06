@@ -336,6 +336,44 @@ function calculateTradeROI(transactions: Transaction[], enrichedPositions: Posit
     return roiData.sort((a, b) => new Date(a.Date || 0).getTime() - new Date(b.Date || 0).getTime());
 }
 
+function plotPortfolioAllocation(positions: Position[], grandTotal: number) {
+    console.log("\n🥧 PORTFOLIO ALLOCATION:");
+    console.log("------------------------------------------------------------------");
+
+    if (grandTotal <= 0) {
+        console.log("Portfolio value is 0. Nothing to plot.");
+        return;
+    }
+
+    // Sort positions largest to smallest by TotalValue
+    const sortedPositions = [...positions].sort((a, b) => (b.TotalValue || 0) - (a.TotalValue || 0));
+
+    const MAX_BAR_LENGTH = 30; // How wide the visual bar should be in terminal characters
+
+    for (const pos of sortedPositions) {
+        const val = pos.TotalValue || 0;
+        if (val <= 0) continue; // Skip empty positions
+
+        // Calculate weight
+        const percentage = (val / grandTotal) * 100;
+
+        // Calculate how many blocks to fill
+        const filledBlocks = Math.round((percentage / 100) * MAX_BAR_LENGTH);
+        const emptyBlocks = MAX_BAR_LENGTH - filledBlocks;
+
+        // Build the visual strings
+        const bar = '█'.repeat(filledBlocks) + '░'.repeat(emptyBlocks);
+
+        // Truncate name to keep columns aligned, and format the numbers
+        const safeName = pos.Name.substring(0, 18).padEnd(18);
+        const pctStr = `${percentage.toFixed(2)}%`.padStart(7);
+        const valStr = `€${val.toFixed(2)}`.padStart(10);
+
+        console.log(`${safeName} │ ${bar} │ ${pctStr} │ ${valStr}`);
+    }
+    console.log("------------------------------------------------------------------\n");
+}
+
 // Execution Logic
 const filePath = process.argv[2];
 
@@ -406,6 +444,8 @@ async function main() {
         for (const [acc, val] of Object.entries(valueByCategory)) {
             console.log(`${acc.padEnd(15)}: €${val.toFixed(2)}`);
         }
+
+        plotPortfolioAllocation(positions, grandTotal);
 
         console.log("-----------------------");
         console.log(`TOTAL PORTFOLIO: €${grandTotal.toFixed(2)}\n`);
