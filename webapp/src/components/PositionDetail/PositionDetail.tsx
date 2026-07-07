@@ -20,11 +20,24 @@ export default function PositionDetail({ position, transactions, onBack }: Props
     useEffect(() => {
         async function loadData() {
             setLoading(true);
-            const history = await fetchYahooChart(position.Symbol);
+
+            // 1. Identify the oldest transaction date to set our chart boundary
+            let earliestTransactionDate: string | undefined = undefined;
+            if (transactions && transactions.length > 0) {
+                // Fixed TS Error with optional chaining and ensuring we use capital .Date
+                earliestTransactionDate = transactions.reduce((earliest, current) => {
+                    return current.date < earliest ? current.date : earliest;
+                }, transactions[0]?.date as string);
+            }
+
+            // 2. Fetch chart data spanning from that historical boundary to today
+            const history = await fetchYahooChart(position.Symbol, earliestTransactionDate);
             setChartData(history);
 
+            // 3. Calculate ROI
             const roi = calculateAssetROI(transactions, position.Symbol, position.Price);
             setRoiData(roi);
+
             setLoading(false);
         }
         loadData();
@@ -58,19 +71,24 @@ export default function PositionDetail({ position, transactions, onBack }: Props
                         </tr>
                     </thead>
                     <tbody>
-                        {roiData.map((r, i) => (
-                            <tr key={i}>
-                                <td>{r.Date}</td>
-                                <td>{r.Type}</td>
-                                <td>€{r.Invested.toFixed(2)}</td>
-                                <td className={r.RoiAbs >= 0 ? 'pos' : 'neg'}>
-                                    {(r.RoiAbs * 100).toFixed(2)}%
-                                </td>
-                                <td className={r.RoiAnn >= 0 ? 'pos' : 'neg'}>
-                                    {(r.RoiAnn * 100).toFixed(2)}%
-                                </td>
-                            </tr>
-                        ))}
+                        {roiData.map((r, i) => {
+                            const isBuy = r.Type.toUpperCase() === 'BUY';
+                            return (
+                                <tr key={i}>
+                                    <td>{r.Date}</td>
+                                    <td>{r.Type}</td>
+                                    <td>€{r.Invested.toFixed(2)}</td>
+
+                                    {/* Only show ROI calculations for BUY transactions */}
+                                    <td className={isBuy ? (r.RoiAbs >= 0 ? 'pos' : 'neg') : 'neutral'}>
+                                        {isBuy ? `${(r.RoiAbs * 100).toFixed(2)}%` : '-'}
+                                    </td>
+                                    <td className={isBuy ? (r.RoiAnn >= 0 ? 'pos' : 'neg') : 'neutral'}>
+                                        {isBuy ? `${(r.RoiAnn * 100).toFixed(2)}%` : '-'}
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
