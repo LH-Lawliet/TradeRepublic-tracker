@@ -8,7 +8,17 @@ const SPECIAL_ROUTING: Record<string, { type: "CRYPTO" | "FUND" | "DERIVATIVE", 
     "ETH": { type: "CRYPTO", query: "ETH-EUR" }
 };
 
-const GERMAN_EXCHANGES = ['.DE', '.F', '.SG', '.MU', '.DU', '.HM'];
+const GERMAN_EXCHANGES = [
+    '.DE', // Xetra
+    '.F',  // Frankfurt
+    '.SG', // Stuttgart
+    '.MU', // Munich
+    '.DU', // Dusseldorf
+    '.HM', // Hamburg
+    '.HA', // Hanover
+    '.BE', // Berlin
+    '.BM'  // Bremen
+];
 
 export async function fetchLivePrices(positions: Position[]): Promise<Position[]> {
     const updated = await Promise.all(positions.map(async (pos) => {
@@ -89,10 +99,10 @@ export async function fetchYahooChart(symbol: string, startDateStr?: string): Pr
         }
 
         // 3. Fallback Exchange Chain Strategy
-        // For ETFs/Stocks, try Xetra (.DE) first for historical depth, then Frankfurt (.F), then asset default
+        // For ETFs/Stocks, try Xetra (.DE) first for historical depth, then Frankfurt (.F), tgen other places then asset default
         const candidateTickers = (symbol === "BTC" || symbol === "ETH")
             ? [baseTicker]
-            : [`${baseTicker}.DE`, `${baseTicker}.F`, baseTicker];
+            : [...GERMAN_EXCHANGES.map(ext => `${baseTicker}${ext}`), baseTicker];
 
         for (const ticker of candidateTickers) {
             const targetUrl = encodeURIComponent(
