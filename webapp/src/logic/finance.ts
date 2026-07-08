@@ -1,4 +1,4 @@
-import type { Transaction, TransactionCategory, Position, RoiRecord } from "./types";
+import type { Transaction, TransactionCategory, Position, RoiRecord, ChartPoint } from "./types";
 
 export function categorizeTransaction(tx: Transaction): TransactionCategory {
     if (["CARD_TRANSACTION", "CARD_TRANSACTION_INTERNATIONAL"].includes(tx.type)) {
@@ -92,7 +92,7 @@ export function calculateAssetROI(transactions: Transaction[], symbol: string, c
         const annualizedROI = (Math.pow(currentPrice / buyPrice, 1 / yearsHeld) - 1);
 
         return {
-            Date: tx.date.split('T')[0],
+            Date: tx.date.split('T')[0]!,
             Name: tx.name,
             Symbol: symbol,
             Invested: Math.abs(Number(tx.amount)),
@@ -104,4 +104,35 @@ export function calculateAssetROI(transactions: Transaction[], symbol: string, c
             Type: tx.type
         };
     }).sort((a, b) => new Date(a.Date).getTime() - new Date(b.Date).getTime());
+}
+
+export function generateFallbackChart(symbol: string, transactions: Transaction[], startDateStr: string): ChartPoint[] {
+    // Filter to only transactions with prices for this specific asset
+    const assetTxs = transactions
+        .filter(t => t.symbol === symbol && t.price && t.date)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    if (assetTxs.length === 0) return [];
+
+    const startDate = new Date(startDateStr);
+    const endDate = new Date();
+    const history: ChartPoint[] = [];
+
+    let currentPrice = Number(assetTxs[0]!.price); // Default to the first known price
+    let txIndex = 0;
+
+    // Step through time day-by-day
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0]!;
+
+        // If we hit a transaction on or before this day, update the current known price
+        while (txIndex < assetTxs.length && assetTxs[txIndex]!.date.split('T')[0]! <= dateStr) {
+            currentPrice = Number(assetTxs[txIndex]!.price);
+            txIndex++;
+        }
+
+        history.push({ date: dateStr, price: currentPrice });
+    }
+
+    return history;
 }

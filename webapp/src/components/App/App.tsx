@@ -53,6 +53,7 @@ export default function App() {
       {view === 'ANALYSIS' && (
         <StockAnalysis
           positions={positions}
+          transactions={transactions}
           onSelectPosition={handleSelectPosition}
         />
       )}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Position, Transaction, ChartPoint, RoiRecord } from '../../logic/types';
 import { fetchYahooChart } from '../../logic/api';
-import { calculateAssetROI } from '../../logic/finance';
+import { calculateAssetROI, generateFallbackChart } from '../../logic/finance';
 import { t } from '../../i18n/config';
 import AssetChart from '../Chart/AssetChart';
 import './PositionDetail.css';
@@ -31,7 +31,12 @@ export default function PositionDetail({ position, transactions, onBack }: Props
             }
 
             // 2. Fetch chart data spanning from that historical boundary to today
-            const history = await fetchYahooChart(position.Symbol, earliestTransactionDate);
+            let history = await fetchYahooChart(position.Symbol, earliestTransactionDate);
+
+            if (history.length === 0 && earliestTransactionDate) {
+                history = generateFallbackChart(position.Symbol, transactions, earliestTransactionDate);
+            }
+
             setChartData(history);
 
             // 3. Calculate ROI

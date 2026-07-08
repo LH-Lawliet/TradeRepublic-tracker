@@ -26,7 +26,10 @@ export const labels = {
     no_chart_data: "No chart data available.",
     filter_all: "All Categories",
     sort_value_highest: "Highest Value",
-    sort_value_lowest: "Lowest Value"
+    sort_value_lowest: "Lowest Value",
+    portfolio_evolution: "Portfolio Evolution",
+    mode_absolute: "Absolute Value (€)",
+    mode_relative: "Relative Return (%)",
 } as const;
 
 export type TranslationKey = keyof typeof labels;
