@@ -20,9 +20,26 @@ const GERMAN_EXCHANGES = [
     '.BM'  // Bremen
 ];
 
+// --- Caches ---
+const PRICE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const priceCache = new Map<string, { price: number, timestamp: number }>();
+const tickerCache = new Map<string, string | null>();
+const chartCache = new Map<string, ChartPoint[]>();
+// --------------
+
 export async function fetchLivePrices(positions: Position[]): Promise<Position[]> {
+    const now = Date.now();
+
     const updated = await Promise.all(positions.map(async (pos) => {
         if (pos.Symbol === "-") return pos;
+
+        // 1. Return cached price if valid
+        const cached = priceCache.get(pos.Symbol);
+        if (cached && (now - cached.timestamp < PRICE_CACHE_TTL_MS)) {
+            pos.Price = cached.price;
+            pos.TotalValue = Math.round(((pos.Quantity * pos.Price) + pos.PendingCash) * 100) / 100;
+            return pos;
+        }
 
         const route = SPECIAL_ROUTING[pos.Symbol];
         try {
@@ -41,6 +58,12 @@ export async function fetchLivePrices(positions: Position[]): Promise<Position[]
                     pos.Price = parseFloat(match[1].replace(/\s/g, '').replace(',', '.'));
                 }
             }
+
+            // Save to cache after a successful fetch
+            if (pos.Price > 0) {
+                priceCache.set(pos.Symbol, { price: pos.Price, timestamp: now });
+            }
+
         } catch (e) {
             console.warn(`Price fetch failed for ${pos.Symbol}`, e);
         }
@@ -48,14 +71,19 @@ export async function fetchLivePrices(positions: Position[]): Promise<Position[]
         pos.TotalValue = Math.round(((pos.Quantity * pos.Price) + pos.PendingCash) * 100) / 100;
         return pos;
     }));
+
     return updated;
 }
 
 /**
- * Scrapes Tradegate for the Kürzel and Price, then races Yahoo exchanges 
+ * Scrapes Tradegate for the Kürzel and Price, then races Yahoo exchanges  
  * to find the ticker with the closest matching price.
  */
 async function getTradegateTicker(isin: string): Promise<string | null> {
+    if (tickerCache.has(isin)) {
+        return tickerCache.get(isin)!;
+    }
+
     try {
         const tgUrl = encodeURIComponent(`https://www.tradegate.de/orderbuch.php?isin=${isin}`);
         const tgRes = await fetch(`${CORS_PROXY}${tgUrl}`);
@@ -64,7 +92,10 @@ async function getTradegateTicker(isin: string): Promise<string | null> {
         const isinRegex = new RegExp(`<td[^>]*>([^<]+)</td>\\s*<td[^>]*>${isin}</td>`, 'i');
         const match = html.match(isinRegex);
 
-        return match && match[1] ? match[1].trim() : null;
+        const result = match && match[1] ? match[1].trim() : null;
+
+        tickerCache.set(isin, result);
+        return result;
     } catch (e) {
         console.warn(`Failed to fetch ticker from Tradegate for ${isin}`, e);
         return null;
@@ -76,6 +107,12 @@ async function getTradegateTicker(isin: string): Promise<string | null> {
  * Prioritizes Xetra (.DE) and Frankfurt (.F) for deep historical ETF depth.
  */
 export async function fetchYahooChart(symbol: string, startDateStr?: string): Promise<ChartPoint[]> {
+    const cacheKey = `${symbol}_${startDateStr || 'all'}`;
+
+    if (chartCache.has(cacheKey)) {
+        return chartCache.get(cacheKey)!;
+    }
+
     try {
         let baseTicker = symbol;
 
@@ -99,7 +136,7 @@ export async function fetchYahooChart(symbol: string, startDateStr?: string): Pr
         }
 
         // 3. Fallback Exchange Chain Strategy
-        // For ETFs/Stocks, try Xetra (.DE) first for historical depth, then Frankfurt (.F), tgen other places then asset default
+        // For ETFs/Stocks, try Xetra (.DE) first for historical depth, then Frankfurt (.F), then other places then asset default
         const candidateTickers = (symbol === "BTC" || symbol === "ETH")
             ? [baseTicker]
             : [...GERMAN_EXCHANGES.map(ext => `${baseTicker}${ext}`), baseTicker];
@@ -121,14 +158,21 @@ export async function fetchYahooChart(symbol: string, startDateStr?: string): Pr
                 // Check if we actually got history back (more than 5 points)
                 if (timestamps.length > 5) {
                     console.log(`Successfully fetched chart history using ticker: ${ticker}`);
-                    return timestamps.map((ts, i) => ({
-                        date: new Date(ts * 1000).toISOString().split('T')[0],
+
+                    const chartData = timestamps.map((ts, i) => ({
+                        // Add the '!' at the end to satisfy noUncheckedIndexedAccess
+                        date: new Date(ts * 1000).toISOString().split('T')[0]!,
                         price: closes[i] || 0
                     })).filter(p => p.price > 0);
+
+                    chartCache.set(cacheKey, chartData);
+                    return chartData;
                 }
             }
         }
 
+        // Cache empty results too, so we don't spam requests for completely broken tickers
+        chartCache.set(cacheKey, []);
         return [];
     } catch (e) {
         console.warn(`Chart fetch failed for ${symbol}`, e);
