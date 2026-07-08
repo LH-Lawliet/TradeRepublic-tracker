@@ -59,4 +59,5 @@ export interface PortfolioChartPoint {
     date: string;
     absoluteValue: number;
     relativeReturn: number;
+    [key: string]: string | number;
 }

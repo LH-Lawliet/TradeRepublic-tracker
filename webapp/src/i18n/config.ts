@@ -30,6 +30,10 @@ export const labels = {
     portfolio_evolution: "Portfolio Evolution",
     mode_absolute: "Absolute Value (€)",
     mode_relative: "Relative Return (%)",
+    chart_merged: "Merged",
+    chart_separated: "Separated",
+    chart_stacked: "Stacked",
+    chart_overlapped: "Overlapped",
 } as const;
 
 export type TranslationKey = keyof typeof labels;

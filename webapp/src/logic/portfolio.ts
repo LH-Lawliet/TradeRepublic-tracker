@@ -92,27 +92,47 @@ export async function buildPortfolioHistory(
         // Calculate EOD (End of Day) values
         let dailyAbsoluteValue = 0;
 
+        // Initialize the daily point with base aggregates
+        const dataPoint: PortfolioChartPoint = {
+            date: dateStr,
+            absoluteValue: 0,
+            relativeReturn: 0
+        };
+
         for (const sym of symbols) {
             const shares = currentShares[sym] || 0;
+            const avgCost = averageCost[sym] || 0;
+
             if (shares > 0) {
                 const priceToday = priceLookup[sym]?.[dateStr];
                 // Forward-fill prices for weekends/holidays
                 if (priceToday !== undefined) lastKnownPrices[sym] = priceToday;
 
-                dailyAbsoluteValue += shares * (lastKnownPrices[sym] || averageCost[sym] || 0);
+                const currentPrice = lastKnownPrices[sym] || avgCost;
+                const assetAbsolute = shares * currentPrice;
+                const assetInvested = shares * avgCost;
+
+                dailyAbsoluteValue += assetAbsolute;
+
+                // Assign individual asset data to the point
+                dataPoint[`${sym}_absolute`] = assetAbsolute;
+                dataPoint[`${sym}_relative`] = totalInvested > 0
+                    ? ((assetAbsolute - assetInvested) / totalInvested) * 100
+                    : 0;
+            } else {
+                // Asset is completely sold off by this date
+                dataPoint[`${sym}_absolute`] = 0;
+                dataPoint[`${sym}_relative`] = 0;
             }
         }
 
-        let dailyRelativeReturn = 0;
+        dataPoint.absoluteValue = dailyAbsoluteValue;
+
         if (totalInvested > 0 && dailyAbsoluteValue > 0) {
-            dailyRelativeReturn = ((dailyAbsoluteValue / totalInvested) - 1) * 100;
+            dataPoint.relativeReturn = ((dailyAbsoluteValue / totalInvested) - 1) * 100;
         }
 
-        history.push({
-            date: dateStr,
-            absoluteValue: dailyAbsoluteValue,
-            relativeReturn: dailyRelativeReturn
-        });
+        history.push(dataPoint);
     }
 
     return history;

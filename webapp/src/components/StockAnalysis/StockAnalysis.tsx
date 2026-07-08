@@ -17,6 +17,8 @@ export default function StockAnalysis({ positions, transactions, onSelectPositio
 
     // Chart States
     const [chartMode, setChartMode] = useState<'ABSOLUTE' | 'RELATIVE'>('ABSOLUTE');
+    const [isMerged, setIsMerged] = useState<boolean>(true);
+    const [isStacked, setIsStacked] = useState<boolean>(false);
     const [chartData, setChartData] = useState<PortfolioChartPoint[]>([]);
     const [isChartLoading, setIsChartLoading] = useState(false);
 
@@ -40,6 +42,12 @@ export default function StockAnalysis({ positions, transactions, onSelectPositio
     }, [positions, filter, sortOrder]);
 
     const totalValue = filteredAndSortedPositions.reduce((sum, p) => sum + p.TotalValue, 0);
+
+    // extract symbols for the chart
+    const activeSymbols = useMemo(() => {
+        const uniqueSymbols = new Set(filteredAndSortedPositions.map(p => p.Symbol).filter(s => s !== '-'));
+        return Array.from(uniqueSymbols);
+    }, [filteredAndSortedPositions])
 
     // Rebuild the chart whenever the user changes the filter
     useEffect(() => {
@@ -67,8 +75,8 @@ export default function StockAnalysis({ positions, transactions, onSelectPositio
                     </select>
 
                     <select onChange={(e) => setSortOrder(e.target.value as 'desc' | 'asc')} value={sortOrder}>
-                        <option value="desc">{t('sort_value_highest') || 'Highest Value'}</option>
-                        <option value="asc">{t('sort_value_lowest') || 'Lowest Value'}</option>
+                        <option value="desc">{t('sort_value_highest')}</option>
+                        <option value="asc">{t('sort_value_lowest')}</option>
                     </select>
                 </div>
             </header>
@@ -78,6 +86,24 @@ export default function StockAnalysis({ positions, transactions, onSelectPositio
                 <div className="chart-header">
                     <h3>{t('portfolio_evolution')}</h3>
                     <div className="chart-toggles">
+                        <button
+                            className={isMerged ? 'active' : ''}
+                            onClick={() => setIsMerged(!isMerged)}
+                            style={{ marginRight: '1vw' }}
+                        >
+                            {isMerged ? t('chart_merged') : t('chart_separated')}
+                        </button>
+
+                        {!isMerged && (
+                            <button
+                                className={isStacked ? 'active' : ''}
+                                onClick={() => setIsStacked(!isStacked)}
+                                style={{ marginRight: '1vw' }}
+                            >
+                                {isStacked ? t('chart_stacked') : t('chart_overlapped')}
+                            </button>
+                        )}
+
                         <button
                             className={chartMode === 'ABSOLUTE' ? 'active' : ''}
                             onClick={() => setChartMode('ABSOLUTE')}
@@ -93,7 +119,13 @@ export default function StockAnalysis({ positions, transactions, onSelectPositio
                     </div>
                 </div>
                 <div className="chart-wrapper">
-                    {isChartLoading ? <p>{t('loading_chart')}</p> : <PortfolioChart data={chartData} mode={chartMode} />}
+                    {isChartLoading ? <p>{t('loading_chart')}</p> : <PortfolioChart
+                        data={chartData}
+                        mode={chartMode}
+                        symbols={activeSymbols}
+                        isStacked={isStacked}
+                        isMerged={isMerged}
+                    />}
                 </div>
             </div>
 
