@@ -49,7 +49,18 @@ export default function StockAnalysis({ positions, transactions, onSelectPositio
     const activeSymbols = useMemo(() => {
         const uniqueSymbols = new Set(filteredAndSortedPositions.map(p => p.Symbol).filter(s => s !== '-'));
         return Array.from(uniqueSymbols);
-    }, [filteredAndSortedPositions])
+    }, [filteredAndSortedPositions]);
+
+    // Create a mapping of Symbol (ISIN) to actual stock Name for the tooltip
+    const symbolNames = useMemo(() => {
+        const map: Record<string, string> = {};
+        filteredAndSortedPositions.forEach(p => {
+            if (p.Symbol !== '-') {
+                map[p.Symbol] = p.Name;
+            }
+        });
+        return map;
+    }, [filteredAndSortedPositions]);
 
     // Rebuild the chart whenever the user changes the filter
     useEffect(() => {
@@ -126,6 +137,7 @@ export default function StockAnalysis({ positions, transactions, onSelectPositio
                         data={chartData}
                         mode={chartMode}
                         symbols={activeSymbols}
+                        symbolNames={symbolNames} // Passed the newly created map here
                         isStacked={isStacked}
                         isMerged={isMerged}
                     />}
