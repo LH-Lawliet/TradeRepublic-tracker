@@ -1,0 +1,22 @@
+.distribution-section {
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.pie-wrapper {
+    height: 45vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Ensure pie labels match the dark mode theme */
+.recharts-pie-label-text {
+    fill: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 500;
+}

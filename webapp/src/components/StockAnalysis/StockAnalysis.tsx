@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import type { Position, Transaction, PortfolioChartPoint, YearlyRoiData } from '../../logic/types';
 import { buildPortfolioHistory } from '../../logic/portfolio';
 import PortfolioChart from '../Chart/PortfolioChart';
+import DistributionChart from '../DistributionChart/DistributionChart';
 import { t } from '../../i18n/config';
 import './StockAnalysis.css';
 
@@ -130,6 +131,8 @@ export default function StockAnalysis({ positions, transactions, onSelectPositio
                     />}
                 </div>
             </div>
+
+            <DistributionChart positions={filteredAndSortedPositions} />
 
             {/* Global Annualized ROI Section */}
             <div className="yearly-roi-section">

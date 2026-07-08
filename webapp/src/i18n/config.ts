@@ -28,6 +28,7 @@ export const labels = {
     sort_value_highest: "Highest Value",
     sort_value_lowest: "Lowest Value",
     portfolio_evolution: "Portfolio Evolution",
+    portfolio_distribution: "Portfolio Distribution",
     mode_absolute: "Absolute Value (€)",
     mode_relative: "Relative Return (%)",
     chart_merged: "Merged",
