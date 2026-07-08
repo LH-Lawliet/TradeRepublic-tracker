@@ -34,6 +34,11 @@ export const labels = {
     chart_separated: "Separated",
     chart_stacked: "Stacked",
     chart_overlapped: "Overlapped",
+    annual_roi_title: "Annualized ROI",
+    annual_roi_note: "Calculated by evaluating assets held on January 1st against their value on December 31st (or today). New purchases during the year are excluded to isolate true asset performance from DCA.",
+    year: "Year",
+    portfolio_roi: "Portfolio ROI",
+    average_yearly_roi: "Avg Yearly ROI",
 } as const;
 
 export type TranslationKey = keyof typeof labels;

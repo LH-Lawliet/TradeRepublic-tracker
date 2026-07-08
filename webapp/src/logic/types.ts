@@ -61,3 +61,14 @@ export interface PortfolioChartPoint {
     relativeReturn: number;
     [key: string]: string | number;
 }
+
+export interface YearlyRoiData {
+    year: string;
+    portfolioRoi: number;
+    assetRois: Record<string, number>;
+}
+
+export interface PortfolioHistoryResult {
+    history: PortfolioChartPoint[];
+    yearlyRois: YearlyRoiData[];
+}

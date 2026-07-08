@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import type { Position, Transaction, PortfolioChartPoint } from '../../logic/types';
+import type { Position, Transaction, PortfolioChartPoint, YearlyRoiData } from '../../logic/types';
 import { buildPortfolioHistory } from '../../logic/portfolio';
 import PortfolioChart from '../Chart/PortfolioChart';
 import { t } from '../../i18n/config';
@@ -20,6 +20,7 @@ export default function StockAnalysis({ positions, transactions, onSelectPositio
     const [isMerged, setIsMerged] = useState<boolean>(true);
     const [isStacked, setIsStacked] = useState<boolean>(false);
     const [chartData, setChartData] = useState<PortfolioChartPoint[]>([]);
+    const [yearlyRois, setYearlyRois] = useState<YearlyRoiData[]>([]);
     const [isChartLoading, setIsChartLoading] = useState(false);
 
     const categories = useMemo(() => {
@@ -54,9 +55,10 @@ export default function StockAnalysis({ positions, transactions, onSelectPositio
         let isMounted = true;
         async function loadChartData() {
             setIsChartLoading(true);
-            const history = await buildPortfolioHistory(filteredAndSortedPositions, transactions);
+            const { history, yearlyRois } = await buildPortfolioHistory(filteredAndSortedPositions, transactions);
             if (isMounted) {
                 setChartData(history);
+                setYearlyRois(yearlyRois);
                 setIsChartLoading(false);
             }
         }
@@ -129,25 +131,84 @@ export default function StockAnalysis({ positions, transactions, onSelectPositio
                 </div>
             </div>
 
+            {/* Global Annualized ROI Section */}
+            <div className="yearly-roi-section">
+                <header className="chart-header">
+                    <h3>{t('annual_roi_title')}</h3>
+                </header>
+                <p className="roi-note">{t('annual_roi_note')}</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>{t('year')}</th>
+                            <th>{t('portfolio_roi')}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {yearlyRois.map(yr => (
+                            <tr key={yr.year}>
+                                <td>{yr.year}</td>
+                                <td className={yr.portfolioRoi >= 0 ? 'pos' : 'neg'}>
+                                    {(yr.portfolioRoi * 100).toFixed(2)}%
+                                </td>
+                            </tr>
+                        ))}
+                        {yearlyRois.length === 0 && (
+                            <tr>
+                                <td colSpan={2}>{isChartLoading ? t('loading_chart') : t('no_chart_data')}</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
             <div className="positions-grid">
-                {filteredAndSortedPositions.map(pos => (
-                    <div
-                        key={pos.Symbol + pos.Name}
-                        className="position-card"
-                        onClick={() => onSelectPosition(pos)}
-                    >
-                        <div className="card-top">
-                            <span className="symbol">{pos.Symbol}</span>
-                            <span className="account">{pos.Account}</span>
+                {filteredAndSortedPositions.map(pos => {
+                    // Extract up to 5 chronological years for this specific asset
+                    const assetYearlyRois = yearlyRois
+                        .filter(yr => yr.assetRois[pos.Symbol] !== undefined)
+                        .map(yr => ({ year: yr.year, roi: yr.assetRois[pos.Symbol]! }));
+
+                    const avgRoi = assetYearlyRois.length > 0
+                        ? assetYearlyRois.reduce((acc, curr) => acc + curr.roi, 0) / assetYearlyRois.length
+                        : null;
+
+                    const recentRois = assetYearlyRois.slice(-5);
+
+                    return (
+                        <div
+                            key={pos.Symbol + pos.Name}
+                            className="position-card"
+                            onClick={() => onSelectPosition(pos)}
+                        >
+                            <div className="card-top">
+                                <span className="symbol">{pos.Symbol}</span>
+                                <span className="account">{pos.Account}</span>
+                            </div>
+                            <h3 className="name">{pos.Name}</h3>
+                            <div className="card-metrics">
+                                <span>{t('quantity')}: {pos.Quantity}</span>
+                                <span>{t('price')}: €{pos.Price.toFixed(2)}</span>
+                                <span className="total">€{pos.TotalValue.toFixed(2)}</span>
+                            </div>
+
+                            {assetYearlyRois.length > 0 && (
+                                <div className="card-yearly-metrics">
+                                    <div className="avg-roi">
+                                        {t('average_yearly_roi')}: <span className={avgRoi! >= 0 ? 'pos' : 'neg'}>{(avgRoi! * 100).toFixed(2)}%</span>
+                                    </div>
+                                    <div className="roi-badges">
+                                        {recentRois.map(yr => (
+                                            <span key={yr.year} className={`roi-badge ${yr.roi >= 0 ? 'pos' : 'neg'}`}>
+                                                {yr.year}: {(yr.roi * 100).toFixed(1)}%
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        <h3 className="name">{pos.Name}</h3>
-                        <div className="card-metrics">
-                            <span>{t('quantity')}: {pos.Quantity}</span>
-                            <span>{t('price')}: €{pos.Price.toFixed(2)}</span>
-                            <span className="total">€{pos.TotalValue.toFixed(2)}</span>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );
