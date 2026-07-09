@@ -49,6 +49,7 @@ export const labels = {
     monthly_spending: "Monthly Spending",
     merchant: "Merchant",
     category: "Category",
+    lifelong_category_expenses: "Category Expenses",
 } as const;
 
 export type TranslationKey = keyof typeof labels;

@@ -8,7 +8,10 @@ import {
     YAxis,
     Tooltip,
     Legend,
-    LabelList
+    LabelList,
+    PieChart,
+    Pie,
+    Cell
 } from 'recharts';
 import type { Transaction } from '../../logic/types';
 import { processCashTransactions, type ExpenseRecord, type MonthlyExpenseChartData } from '../../logic/cash';
@@ -24,7 +27,6 @@ export default function CashAnalysis({ transactions }: Props) {
     const [chartData, setChartData] = useState<MonthlyExpenseChartData[]>([]);
     const [uniqueCategories, setUniqueCategories] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [activeCategory, setActiveCategory] = useState<string | null>(null);
     const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
@@ -76,6 +78,17 @@ export default function CashAnalysis({ transactions }: Props) {
         return { ...monthData, monthTotal };
     });
 
+    // Format data specifically for the lifelong Pie Chart
+    const pieData = sortedCategories.map(category => {
+        // Find the color from the first expense that matches this category
+        const color = expenses.find(e => e.category === category)?.color || "#8884d8";
+        return {
+            name: category,
+            value: categoryTotals[category],
+            color: color
+        };
+    }).filter(data => data.value! > 0); // Exclude categories with 0 expense
+
     return (
         <div className="cash-container">
             <header className="cash-header">
@@ -88,7 +101,7 @@ export default function CashAnalysis({ transactions }: Props) {
             <div className="chart-section">
                 <h3>{t('monthly_spending')}</h3>
                 <div className="chart-wrapper">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height={400}>
                         <ComposedChart
                             data={chartDataWithTotals}
                             margin={{ top: 30, right: 10, left: 0, bottom: 0 }}
@@ -109,7 +122,7 @@ export default function CashAnalysis({ transactions }: Props) {
                             />
                             <Legend wrapperStyle={{ fontSize: '0.8rem', color: '#94a3b8' }} />
 
-                            {/* Render the stacked bars normally, no labels attached to them */}
+                            {/* Render the stacked bars globally sorted */}
                             {sortedCategories.map((category) => {
                                 const color = expenses.find(e => e.category === category)?.color || "#8884d8";
 
@@ -145,6 +158,29 @@ export default function CashAnalysis({ transactions }: Props) {
                                 />
                             </Line>
                         </ComposedChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            <div className="chart-section">
+                <h3>{t('lifelong_category_expenses')}</h3>
+                <div className="chart-wrapper">
+                    <ResponsiveContainer width="100%" height={400}>
+                        <PieChart>
+                            <Pie
+                                data={pieData}
+                                labelLine={true}
+                                label={({ name, percent }) => `${name} ${(percent! * 100).toFixed(0)}%`}
+                                fill="#8884d8"
+                                dataKey="value"
+                            >
+                                {pieData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                            </Pie>
+                            <Tooltip formatter={(value: any) => `€${Number(value).toFixed(2)}`} />
+                            <Legend wrapperStyle={{ fontSize: '0.8rem', color: '#94a3b8' }} />
+                        </PieChart>
                     </ResponsiveContainer>
                 </div>
             </div>

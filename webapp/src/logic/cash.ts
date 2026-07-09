@@ -1,5 +1,5 @@
 import type { Transaction } from "./types";
-import { getCategoryFromMcc, guessLogoUrl } from "./mcc";
+import { getCategoryFromMcc, getCategoryLogo } from "./mcc";
 
 export interface ExpenseRecord {
     id: string;
@@ -17,25 +17,22 @@ export interface MonthlyExpenseChartData {
     [category: string]: string | number;
 }
 
-export async function processCashTransactions(transactions: Transaction[]) {
+export function processCashTransactions(transactions: Transaction[]) {
     const expenseTxs = transactions.filter(t =>
         t.category === "CASH" &&
         ["CARD_TRANSACTION", "CARD_TRANSACTION_INTERNATIONAL", "TRANSFER_DIRECT_DEBIT_INBOUND"].includes(t.type) &&
         t.amount !== null && t.amount < 0
     );
 
-    // Run all API fetches in parallel for speed
-    const expenses: ExpenseRecord[] = await Promise.all(expenseTxs.map(async t => {
-        const merchantName = t.counterparty_name || t.description || "Unknown";
+    const expenses: ExpenseRecord[] = expenseTxs.map(t => {
+        const merchantName = t.name || "Unknown";
 
-        // Fetch Category and Logo concurrently
-        const [catInfo, logoUrl] = await Promise.all([
-            getCategoryFromMcc(t.mcc_code),
-            guessLogoUrl(merchantName)
-        ]);
+        const catInfo = getCategoryFromMcc(t.mcc_code);
+        const logoUrl = getCategoryLogo(catInfo.label);
 
         return {
-            id: t.transaction_id || Math.random().toString(),
+            // Generate a fallback ID using datetime and name since transaction_id doesn't exist
+            id: `${t.datetime}-${merchantName.replace(/\s+/g, '-')}-${Math.random().toString(36).substring(2, 7)}`,
             date: t.date.split('T')[0]!,
             merchant: merchantName,
             amount: Math.abs(Number(t.amount)),
@@ -43,7 +40,7 @@ export async function processCashTransactions(transactions: Transaction[]) {
             color: catInfo.color,
             logoUrl
         };
-    }));
+    });
 
     // Sort chronologically (newest first)
     expenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
