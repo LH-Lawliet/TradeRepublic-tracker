@@ -40,6 +40,15 @@ export const labels = {
     year: "Year",
     portfolio_roi: "Portfolio ROI",
     average_yearly_roi: "Avg Yearly ROI",
+    analyze_cash: "Analyze Cash",
+    back_to_transactions: "Back to Transactions",
+    cash_loading: "Connecting to APIs and parsing transactions...",
+    cash_no_data: "No cash expenses found in this dataset.",
+    expense_analysis: "Expense Analysis",
+    total_tracked: "Total Tracked",
+    monthly_spending: "Monthly Spending",
+    merchant: "Merchant",
+    category: "Category",
 } as const;
 
 export type TranslationKey = keyof typeof labels;

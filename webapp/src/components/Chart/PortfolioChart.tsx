@@ -60,13 +60,11 @@ function PortfolioChart({ data, mode, symbols, symbolNames, isStacked, isMerged 
         if (displayPayload.length === 0) return null;
 
         return (
-            <div style={{ backgroundColor: '#1e293b', padding: '10px', borderRadius: '0.5vw' }}>
-                <p style={{ margin: '0 0 5px 0', color: '#94a3b8', fontSize: '0.8rem' }}>{label}</p>
+            <div className="custom-tooltip">
+                <p className="tooltip-label">{label}</p>
                 {displayPayload.map((entry: any) => {
                     const safeName = String(entry.name || entry.dataKey || '');
                     const cleanName = safeName.replace('_absolute', '').replace('_relative', '');
-
-                    // Look up the actual stock name using the mapped symbolNames, fallback to cleanName
                     const labelName = (cleanName === 'absoluteValue' || cleanName === 'relativeReturn')
                         ? t('total_portfolio')
                         : (symbolNames[cleanName] || cleanName);
@@ -75,8 +73,8 @@ function PortfolioChart({ data, mode, symbols, symbolNames, isStacked, isMerged 
                     const valueStr = isAbsolute ? `€${val.toFixed(2)}` : `${val.toFixed(2)}%`;
 
                     return (
-                        <div key={entry.dataKey} style={{ color: '#f8fafc', marginBottom: '2px', fontSize: '0.9rem' }}>
-                            <span style={{ color: entry.color, marginRight: '8px' }}>●</span>
+                        <div key={entry.dataKey} className="tooltip-entry">
+                            <span className="tooltip-dot" style={{ color: entry.color }}>●</span>
                             {labelName}: {valueStr}
                         </div>
                     );

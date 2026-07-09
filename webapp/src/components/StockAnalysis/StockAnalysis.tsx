@@ -103,7 +103,6 @@ export default function StockAnalysis({ positions, transactions, onSelectPositio
                         <button
                             className={isMerged ? 'active' : ''}
                             onClick={() => setIsMerged(!isMerged)}
-                            style={{ marginRight: '1vw' }}
                         >
                             {isMerged ? t('chart_merged') : t('chart_separated')}
                         </button>
@@ -112,7 +111,6 @@ export default function StockAnalysis({ positions, transactions, onSelectPositio
                             <button
                                 className={isStacked ? 'active' : ''}
                                 onClick={() => setIsStacked(!isStacked)}
-                                style={{ marginRight: '1vw' }}
                             >
                                 {isStacked ? t('chart_stacked') : t('chart_overlapped')}
                             </button>

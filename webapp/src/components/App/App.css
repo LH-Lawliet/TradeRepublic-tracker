@@ -11,6 +11,23 @@
     flex-direction: column;
     gap: var(--spacing-md);
     animation: fadeIn 0.3s ease;
+
+    .action-buttons {
+        display: flex;
+        gap: 1vw;
+    }
+
+    .btn-secondary {
+        background-color: #8b5cf6;
+
+        &:hover {
+            background-color: #7c3aed;
+        }
+    }
+
+    .back-btn {
+        width: fit-content;
+    }
 }
 
 @keyframes fadeIn {
@@ -22,5 +39,40 @@
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+.recharts-default-tooltip {
+    background-color: var(--bg-secondary) !important;
+    border: none !important;
+    border-radius: var(--border-radius) !important;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.recharts-tooltip-item {
+    color: var(--text-primary) !important;
+}
+
+/* Custom Tooltip Classes (Used in PortfolioChart) */
+.custom-tooltip {
+    background-color: var(--bg-secondary);
+    padding: 10px;
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+
+    .tooltip-label {
+        margin: 0 0 5px 0;
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+    }
+
+    .tooltip-entry {
+        color: var(--text-primary);
+        margin-bottom: 2px;
+        font-size: 0.9rem;
+
+        .tooltip-dot {
+            margin-right: 8px;
+        }
     }
 }

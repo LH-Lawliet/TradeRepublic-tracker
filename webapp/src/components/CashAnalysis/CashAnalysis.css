@@ -1,0 +1,105 @@
+.cash-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    height: 90vh;
+    animation: fadeIn 0.3s ease;
+}
+
+.cash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 0.1vh solid var(--border-color);
+    padding-bottom: var(--spacing-sm);
+
+    h2 {
+        margin: 0;
+    }
+
+    .stats {
+        font-weight: bold;
+        color: var(--negative-color);
+        font-size: 1.2rem;
+    }
+}
+
+.chart-section {
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    height: 40vh;
+
+    h3 {
+        margin: 0 0 var(--spacing-sm) 0;
+    }
+
+    .chart-wrapper {
+        width: 100%;
+        min-height: 30vh;
+        flex: 1;
+    }
+}
+
+.table-section {
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+
+    h3 {
+        margin: 0 0 var(--spacing-sm) 0;
+    }
+}
+
+.merchant-cell {
+    display: flex;
+    align-items: center;
+    gap: 1vw;
+
+    .logo-container {
+        width: 2vw;
+        height: 2vw;
+        border-radius: 50%;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: var(--bg-primary);
+        flex-shrink: 0;
+
+        img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background-color: white;
+        }
+
+        .logo-fallback {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+    }
+}
+
+.category-badge {
+    padding: 0.3vh 0.6vw;
+    border-radius: 1vw;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.amount-cell {
+    font-weight: bold;
+}

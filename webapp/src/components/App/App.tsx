@@ -4,13 +4,14 @@ import { fetchLivePrices } from '../../logic/api';
 import { t } from '../../i18n/config';
 import { parseCsvFile } from '../../logic/parser';
 import { calculatePositions as calcPosSync } from '../../logic/finance';
+import CashAnalysis from '../CashAnalysis/CashAnalysis';
 import Uploader from '../Uploader/Uploader';
 import TransactionTable from '../Transactions/TransactionTable';
 import StockAnalysis from '../StockAnalysis/StockAnalysis';
 import PositionDetail from '../PositionDetail/PositionDetail'
 import './App.css';
 
-type ViewState = 'UPLOAD' | 'TRANSACTIONS' | 'ANALYSIS' | 'DETAIL';
+type ViewState = 'UPLOAD' | 'TRANSACTIONS' | 'ANALYSIS' | 'DETAIL' | 'CASH';
 
 export default function App() {
   const [view, setView] = useState<ViewState>('UPLOAD');
@@ -45,7 +46,10 @@ export default function App() {
 
       {view === 'TRANSACTIONS' && (
         <div className="view-wrapper">
-          <button onClick={handleAnalyze}>{t('analyze_stocks')}</button>
+          <div className="action-buttons">
+            <button onClick={handleAnalyze}>{t('analyze_stocks')}</button>
+            <button className="btn-secondary" onClick={() => setView('CASH')}>{t('analyze_cash')}</button>
+          </div>
           <TransactionTable transactions={transactions} />
         </div>
       )}
@@ -64,6 +68,15 @@ export default function App() {
           transactions={transactions}
           onBack={() => setView('ANALYSIS')}
         />
+      )}
+
+      {view === 'CASH' && (
+        <div className="view-wrapper">
+          <button className="back-btn" onClick={() => setView('TRANSACTIONS')}>
+            &larr; {t('back_to_transactions')}
+          </button>
+          <CashAnalysis transactions={transactions} />
+        </div>
       )}
     </div>
   );

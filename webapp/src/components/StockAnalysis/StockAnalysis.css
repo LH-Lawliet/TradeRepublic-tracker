@@ -125,7 +125,7 @@
 
 .chart-toggles {
     display: flex;
-    gap: 0.5vw;
+    gap: 1vw;
 
     button {
         background-color: transparent;
