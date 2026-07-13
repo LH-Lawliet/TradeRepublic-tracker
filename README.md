@@ -25,7 +25,26 @@ Because the application runs entirely in your browser, **no server is required**
 
 ## 📸 Screenshots
 
-TODO
+### Data Import & Transactions
+**Import CSV**
+![Import CSV](docs/images/import_csv.png)
+
+**Transactions History**
+![Transactions](docs/images/transactions.png)
+
+### Portfolio & Stocks
+**Stocks Overview**
+![Stocks](docs/images/stocks.png)
+
+**Stocks Performance Chart**
+![Stocks Chart](docs/images/stocks_chart.png)
+
+### Expense Tracking
+**Expenses List**
+![Expenses List](docs/images/expenses_list.png)
+
+**Expenses Distribution Chart**
+![Expenses Chart](docs/images/expenses_chart.png)
 
 ## 🏗 Built With
 
