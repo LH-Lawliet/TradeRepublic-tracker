@@ -9,6 +9,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: var(--spacing-md);
 
     select {
         padding: var(--spacing-sm) 1vw;
@@ -16,6 +17,39 @@
         color: var(--text-primary);
         border: 0.1vh solid var(--border-color);
         border-radius: var(--border-radius);
+    }
+}
+
+.analysis-title {
+    display: flex;
+    align-items: center;
+    gap: 1vw;
+    flex-wrap: wrap;
+
+    h2 {
+        margin: 0;
+    }
+
+    .back-btn {
+        padding: 0.6vh 1vw;
+    }
+
+    .xirr,
+    .cash-balance {
+        background: var(--bg-secondary);
+        border: 0.1vh solid var(--border-color);
+        border-radius: var(--border-radius);
+        padding: 0.5vh 0.8vw;
+        font-size: 0.85rem;
+        font-weight: 700;
+
+        &.pos {
+            color: var(--positive-color);
+        }
+
+        &.neg {
+            color: var(--negative-color);
+        }
     }
 }
 

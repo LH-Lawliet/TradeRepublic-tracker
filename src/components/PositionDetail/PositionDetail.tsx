@@ -10,9 +10,10 @@ interface Props {
     position: Position;
     transactions: Transaction[];
     onBack: () => void;
+    useExternalMarketData: boolean;
 }
 
-export default function PositionDetail({ position, transactions, onBack }: Props) {
+export default function PositionDetail({ position, transactions, onBack, useExternalMarketData }: Props) {
     const [chartData, setChartData] = useState<ChartPoint[]>([]);
     const [roiData, setRoiData] = useState<RoiRecord[]>([]);
     const [loading, setLoading] = useState(true);
@@ -31,7 +32,9 @@ export default function PositionDetail({ position, transactions, onBack }: Props
             }
 
             // 2. Fetch chart data spanning from that historical boundary to today
-            let history = await fetchYahooChart(position.Symbol, earliestTransactionDate);
+            let history = useExternalMarketData
+                ? await fetchYahooChart(position.Symbol, earliestTransactionDate, { useExternalMarketData })
+                : [];
 
             if (history.length === 0 && earliestTransactionDate) {
                 history = generateFallbackChart(position.Symbol, transactions, earliestTransactionDate);
@@ -46,7 +49,7 @@ export default function PositionDetail({ position, transactions, onBack }: Props
             setLoading(false);
         }
         loadData();
-    }, [position, transactions]);
+    }, [position, transactions, useExternalMarketData]);
 
     return (
         <div className="detail-container">

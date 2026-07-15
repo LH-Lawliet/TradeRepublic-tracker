@@ -3,6 +3,10 @@ import type { Position, ChartPoint } from "./types";
 // Public CORS proxy required for browser-based external API fetches
 const CORS_PROXY = "https://corsproxy.io/?";
 
+export interface MarketDataOptions {
+    useExternalMarketData?: boolean;
+}
+
 const SPECIAL_ROUTING: Record<string, { type: "CRYPTO" | "FUND" | "DERIVATIVE", query?: string }> = {
     "BTC": { type: "CRYPTO", query: "BTC-EUR" },
     "ETH": { type: "CRYPTO", query: "ETH-EUR" }
@@ -27,49 +31,65 @@ const tickerCache = new Map<string, string | null>();
 const chartCache = new Map<string, ChartPoint[]>();
 // --------------
 
-export async function fetchLivePrices(positions: Position[]): Promise<Position[]> {
+function shouldUseExternalMarketData(options?: MarketDataOptions) {
+    return options?.useExternalMarketData !== false;
+}
+
+export async function fetchLivePrices(
+    positions: Position[],
+    options?: MarketDataOptions
+): Promise<Position[]> {
+    if (!shouldUseExternalMarketData(options)) {
+        return positions.map(pos => ({
+            ...pos,
+            TotalValue: Math.round(((pos.Quantity * pos.Price) + pos.PendingCash) * 100) / 100
+        }));
+    }
+
     const now = Date.now();
 
     const updated = await Promise.all(positions.map(async (pos) => {
-        if (pos.Symbol === "-") return pos;
+        const updatedPos = { ...pos };
+
+        if (updatedPos.Symbol === "-") return updatedPos;
 
         // 1. Return cached price if valid
-        const cached = priceCache.get(pos.Symbol);
+        const cached = priceCache.get(updatedPos.Symbol);
         if (cached && (now - cached.timestamp < PRICE_CACHE_TTL_MS)) {
-            pos.Price = cached.price;
-            pos.TotalValue = Math.round(((pos.Quantity * pos.Price) + pos.PendingCash) * 100) / 100;
-            return pos;
+            updatedPos.Price = cached.price;
+            updatedPos.TotalValue = Math.round(((updatedPos.Quantity * updatedPos.Price) + updatedPos.PendingCash) * 100) / 100;
+            return updatedPos;
         }
 
-        const route = SPECIAL_ROUTING[pos.Symbol];
+        const route = SPECIAL_ROUTING[updatedPos.Symbol];
         try {
             if (route?.type === "CRYPTO") {
                 const res = await fetch(`https://api.coinbase.com/v2/prices/${route.query}/spot`);
                 const json = await res.json() as { data: { amount: string } };
-                pos.Price = parseFloat(json.data.amount);
+                updatedPos.Price = parseFloat(json.data.amount);
             } else {
                 // Fetching via Proxy to bypass CORS for Tradegate
-                const targetUrl = encodeURIComponent(`https://www.tradegate.de/orderbuch.php?isin=${pos.Symbol}`);
+                const targetUrl = encodeURIComponent(`https://www.tradegate.de/orderbuch.php?isin=${updatedPos.Symbol}`);
                 const res = await fetch(`${CORS_PROXY}${targetUrl}`);
                 const html = await res.text();
 
                 const match = html.match(/id="last">([\d\s.,]+)<\//);
                 if (match && match[1]) {
-                    pos.Price = parseFloat(match[1].replace(/\s/g, '').replace(',', '.'));
+                    updatedPos.Price = parseFloat(match[1].replace(/\s/g, '').replace(',', '.'));
                 }
             }
 
             // Save to cache after a successful fetch
-            if (pos.Price > 0) {
-                priceCache.set(pos.Symbol, { price: pos.Price, timestamp: now });
+            if (updatedPos.Price > 0) {
+                priceCache.set(updatedPos.Symbol, { price: updatedPos.Price, timestamp: now });
             }
 
         } catch (e) {
-            console.warn(`Price fetch failed for ${pos.Symbol}`, e);
+            console.warn(`Price fetch failed for ${updatedPos.Symbol}`, e);
         }
 
-        pos.TotalValue = Math.round(((pos.Quantity * pos.Price) + pos.PendingCash) * 100) / 100;
-        return pos;
+        updatedPos.TotalValue = Math.round(((updatedPos.Quantity * updatedPos.Price) + updatedPos.PendingCash) * 100) / 100;
+        return updatedPos;
     }));
 
     return updated;
@@ -106,7 +126,15 @@ async function getTradegateTicker(isin: string): Promise<string | null> {
  * Fetches historical data using Yahoo's timestamp query parameters.
  * Prioritizes Xetra (.DE) and Frankfurt (.F) for deep historical ETF depth.
  */
-export async function fetchYahooChart(symbol: string, startDateStr?: string): Promise<ChartPoint[]> {
+export async function fetchYahooChart(
+    symbol: string,
+    startDateStr?: string,
+    options?: MarketDataOptions
+): Promise<ChartPoint[]> {
+    if (!shouldUseExternalMarketData(options)) {
+        return [];
+    }
+
     const cacheKey = `${symbol}_${startDateStr || 'all'}`;
 
     if (chartCache.has(cacheKey)) {

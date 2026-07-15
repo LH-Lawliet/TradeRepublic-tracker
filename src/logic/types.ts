@@ -71,4 +71,8 @@ export interface YearlyRoiData {
 export interface PortfolioHistoryResult {
     history: PortfolioChartPoint[];
     yearlyRois: YearlyRoiData[];
+    symbols?: string[];
+    symbolNames?: Record<string, string>;
+    xirr?: number | null;
+    cashBalance?: number;
 }
