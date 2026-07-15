@@ -1,28 +1,214 @@
 import { fetchYahooChart } from './api';
-import { generateFallbackChart } from './finance';
+import {
+    generateFallbackChart,
+    getNetAmount,
+    getPositionCategory,
+    getTradeQuantityDelta,
+    isIncomeTransaction,
+    normalizeTransactionType
+} from './finance';
 import type { Position, Transaction, PortfolioChartPoint, PortfolioHistoryResult, YearlyRoiData } from './types';
+
+interface CashFlow {
+    date: string;
+    amount: number;
+}
+
+function getDate(tx: Transaction): string {
+    return String(tx.date || tx.datetime || '').split('T')[0] || '';
+}
+
+function getAbsoluteAmount(tx: Transaction): number {
+    const amount = Number(tx.amount);
+    return Number.isFinite(amount) ? Math.abs(amount) : 0;
+}
+
+function getFallbackTradeValue(tx: Transaction, quantity: number): number {
+    const amount = getAbsoluteAmount(tx);
+    if (amount > 0) {
+        return amount;
+    }
+
+    const price = Number(tx.price);
+    return Number.isFinite(price) && price > 0 ? quantity * price : 0;
+}
+
+function getUnitPrice(tx: Transaction, fallbackPrice: number): number {
+    const price = Number(tx.price);
+    return Number.isFinite(price) && price > 0 ? price : fallbackPrice;
+}
+
+function matchesAccountFilter(tx: Transaction, accountFilter: string) {
+    return accountFilter === 'ALL' || getPositionCategory(tx) === accountFilter;
+}
+
+function hasSecurityQuantity(tx: Transaction) {
+    return Boolean(tx.symbol && getDate(tx) && getTradeQuantityDelta(tx) !== null);
+}
+
+function isBuyLike(type: string) {
+    return type.includes('BUY') || type.includes('SUBSCRIPTION');
+}
+
+function isSellLike(type: string) {
+    return type.includes('SELL');
+}
+
+function isTransferInLike(type: string) {
+    return type.includes('TRANSFER_IN') || type.includes('FREE_RECEIPT') || type.includes('INBOUND') || type.includes('RECEIPT');
+}
+
+function isTransferOutLike(type: string) {
+    return type.includes('TRANSFER_OUT') || type.includes('OUTBOUND') || type.includes('BOOK_OUT') || type.includes('AUSBUCH');
+}
+
+function isRedemptionLike(type: string) {
+    return type.includes('REDEMPTION') || type.includes('TILGUNG') || type.includes('MATURITY');
+}
+
+function isWorthlessLike(type: string) {
+    return type.includes('EXPIR') || type.includes('WORTHLESS') || type.includes('DELIST');
+}
+
+function isRatioChangeLike(type: string) {
+    return type.includes('SPLIT') || type.includes('MERGER') || type.includes('FUSION');
+}
+
+function isStandaloneCashAdjustment(type: string) {
+    return type.includes('FEE') || type.includes('TAX');
+}
+
+function getSignedAmount(tx: Transaction): number | null {
+    const amount = Number(tx.amount);
+    return Number.isFinite(amount) ? amount : null;
+}
+
+function yearsBetween(startDate: Date, date: Date) {
+    return (date.getTime() - startDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+}
+
+function calculateXirr(cashFlows: CashFlow[]): number | null {
+    if (cashFlows.length < 2) {
+        return null;
+    }
+
+    const hasPositive = cashFlows.some(flow => flow.amount > 0);
+    const hasNegative = cashFlows.some(flow => flow.amount < 0);
+    if (!hasPositive || !hasNegative) {
+        return null;
+    }
+
+    const startDate = new Date(cashFlows[0]!.date);
+    const npv = (rate: number) => cashFlows.reduce((sum, flow) => {
+        const years = yearsBetween(startDate, new Date(flow.date));
+        return sum + flow.amount / Math.pow(1 + rate, years);
+    }, 0);
+
+    let low = -0.9999;
+    let high = 10;
+    let lowValue = npv(low);
+    let highValue = npv(high);
+
+    if (lowValue * highValue > 0) {
+        high = 100;
+        highValue = npv(high);
+        if (lowValue * highValue > 0) {
+            return null;
+        }
+    }
+
+    for (let i = 0; i < 100; i++) {
+        const mid = (low + high) / 2;
+        const midValue = npv(mid);
+
+        if (Math.abs(midValue) < 0.000001) {
+            return mid;
+        }
+
+        if (lowValue * midValue < 0) {
+            high = mid;
+            highValue = midValue;
+        } else {
+            low = mid;
+            lowValue = midValue;
+        }
+    }
+
+    return (low + high) / 2;
+}
+
+function buildYearlyTwrReturns(history: PortfolioChartPoint[]): YearlyRoiData[] {
+    const yearlyRois: YearlyRoiData[] = [];
+    const years = Array.from(new Set(history.map(point => point.date.substring(0, 4))));
+
+    years.forEach(year => {
+        const firstIndex = history.findIndex(point => point.date.startsWith(year));
+        if (firstIndex < 0) {
+            return;
+        }
+
+        const yearPoints = history.filter(point => point.date.startsWith(year));
+        const lastPoint = yearPoints[yearPoints.length - 1]!;
+        const previousPoint = firstIndex > 0 ? history[firstIndex - 1] : null;
+        const startFactor = previousPoint ? 1 + (Number(previousPoint.relativeReturn) / 100) : 1;
+        const endFactor = 1 + (Number(lastPoint.relativeReturn) / 100);
+
+        yearlyRois.push({
+            year,
+            portfolioRoi: startFactor !== 0 ? (endFactor / startFactor) - 1 : 0,
+            assetRois: {}
+        });
+    });
+
+    return yearlyRois;
+}
 
 export async function buildPortfolioHistory(
     visiblePositions: Position[],
-    allTransactions: Transaction[]
+    allTransactions: Transaction[],
+    useExternalMarketData = true,
+    accountFilter = 'ALL'
 ): Promise<PortfolioHistoryResult> {
-    if (visiblePositions.length === 0) return { history: [], yearlyRois: [] };
+    const relevantTransactions = allTransactions
+        .filter(tx => getDate(tx) && matchesAccountFilter(tx, accountFilter))
+        .sort((a, b) => new Date(getDate(a)).getTime() - new Date(getDate(b)).getTime());
 
-    // 1. Isolate the symbols currently visible (filtered)
-    const symbols = new Set(visiblePositions.map(p => p.Symbol).filter(s => s !== '-'));
+    const securityTransactions = relevantTransactions.filter(hasSecurityQuantity);
+    const symbols = new Set(securityTransactions.map(tx => tx.symbol).filter(symbol => symbol && symbol !== '-'));
 
-    // 2. Filter and sort transactions relevant only to these symbols
-    const txs = allTransactions
-        .filter(t => symbols.has(t.symbol) && t.date && t.price && t.shares)
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    visiblePositions
+        .filter(position => position.Symbol !== '-')
+        .forEach(position => symbols.add(position.Symbol));
 
-    if (txs.length === 0) return { history: [], yearlyRois: [] };
+    if (symbols.size === 0 || securityTransactions.length === 0) {
+        const cashBalance = relevantTransactions.reduce((sum, tx) => {
+            if (isIncomeTransaction(tx)) {
+                return sum + getNetAmount(tx);
+            }
 
-    const earliestDateStr = txs[0]!.date.split('T')[0]!;
+            if (!tx.symbol) {
+                return sum + (getSignedAmount(tx) ?? 0);
+            }
 
-    // 3. Fetch historical charts for all visible symbols simultaneously
+            return sum;
+        }, 0);
+
+        return { history: [], yearlyRois: [], symbols: [], symbolNames: {}, xirr: null, cashBalance };
+    }
+
+    const symbolNames = Array.from(symbols).reduce((map, symbol) => {
+        const position = visiblePositions.find(pos => pos.Symbol === symbol);
+        const transaction = securityTransactions.find(tx => tx.symbol === symbol);
+        map[symbol] = position?.Name || transaction?.name || symbol;
+        return map;
+    }, {} as Record<string, string>);
+
+    const earliestDateStr = securityTransactions[0]!.date.split('T')[0]!;
+
     const chartPromises = Array.from(symbols).map(async (sym) => {
-        const data = await fetchYahooChart(sym, earliestDateStr);
+        const data = useExternalMarketData
+            ? await fetchYahooChart(sym, earliestDateStr, { useExternalMarketData })
+            : [];
         return { sym, data };
     });
 
@@ -30,69 +216,149 @@ export async function buildPortfolioHistory(
 
     charts.forEach(chart => {
         if (chart.data.length === 0) {
-            chart.data = generateFallbackChart(chart.sym, txs, earliestDateStr);
+            chart.data = generateFallbackChart(chart.sym, securityTransactions, earliestDateStr);
         }
     });
 
     const priceLookup: Record<string, Record<string, number>> = {};
     charts.forEach(({ sym, data }) => {
         priceLookup[sym] = {};
-        data.forEach(pt => {
-            priceLookup[sym]![pt.date] = pt.price;
+        data.forEach(point => {
+            priceLookup[sym]![point.date] = point.price;
         });
     });
 
-    // 4. Generate a continuous daily timeline from the first trade to today
     const startDate = new Date(earliestDateStr);
     const endDate = new Date();
     const dateRange: string[] = [];
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-        dateRange.push(d.toISOString().split('T')[0]!);
+    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+        dateRange.push(date.toISOString().split('T')[0]!);
     }
 
-    // 5. Walk through time day-by-day to calculate portfolio states
     const history: PortfolioChartPoint[] = [];
     const currentShares: Record<string, number> = {};
     const averageCost: Record<string, number> = {};
-    let totalInvested = 0;
-    let txIndex = 0;
     const lastKnownPrices: Record<string, number> = {};
-
-    // Store a snapshot for our Annual ROI calculation
-    const dailySnapshots: Record<string, { shares: Record<string, number>, prices: Record<string, number> }> = {};
+    const cashFlows: CashFlow[] = [];
+    let cashBalance = 0;
+    let txIndex = 0;
+    let cumulativeReturnFactor = 1;
+    let previousHoldingsValue = 0;
 
     for (const dateStr of dateRange) {
-        while (txIndex < txs.length && txs[txIndex]!.date.split('T')[0]! <= dateStr) {
-            const tx = txs[txIndex]!;
+        let externalFlowToday = 0;
+        let incomeToday = 0;
+
+        while (txIndex < relevantTransactions.length && getDate(relevantTransactions[txIndex]!) <= dateStr) {
+            const tx = relevantTransactions[txIndex]!;
+            const type = normalizeTransactionType(tx.type);
             const sym = tx.symbol;
-            const shares = Number(tx.shares);
-            const amount = Math.abs(Number(tx.amount));
+            const quantityDelta = getTradeQuantityDelta(tx);
 
-            if (!currentShares[sym]) {
-                currentShares[sym] = 0;
-                averageCost[sym] = 0;
+            if (isIncomeTransaction(tx)) {
+                const netIncome = getNetAmount(tx);
+                cashBalance += netIncome;
+                incomeToday += netIncome;
+                if (netIncome > 0) {
+                    cashFlows.push({ date: getDate(tx), amount: netIncome });
+                }
+                txIndex++;
+                continue;
             }
 
-            if (tx.type.includes('BUY')) {
-                const prevTotalValue = currentShares[sym]! * averageCost[sym]!;
-                currentShares[sym] += shares;
-                averageCost[sym] = (prevTotalValue + amount) / currentShares[sym]!;
-                totalInvested += amount;
-            } else if (tx.type.includes('SELL')) {
-                currentShares[sym] -= shares;
-                if (currentShares[sym]! <= 0.0001) currentShares[sym] = 0;
-
-                const investedExtraction = shares * averageCost[sym]!;
-                totalInvested -= investedExtraction;
+            if (!sym && isStandaloneCashAdjustment(type)) {
+                cashBalance += getSignedAmount(tx) ?? 0;
+                txIndex++;
+                continue;
             }
+
+            if (!sym && getSignedAmount(tx) !== null) {
+                cashBalance += getSignedAmount(tx)!;
+                txIndex++;
+                continue;
+            }
+
+            if (sym && quantityDelta !== null && symbols.has(sym)) {
+                if (!currentShares[sym]) {
+                    currentShares[sym] = 0;
+                    averageCost[sym] = 0;
+                }
+
+                const currentPrice = getUnitPrice(tx, lastKnownPrices[sym] || averageCost[sym] || 0);
+                if (currentPrice > 0) {
+                    lastKnownPrices[sym] = currentPrice;
+                }
+
+                if (isRatioChangeLike(type)) {
+                    const previousCostBasis = currentShares[sym]! * averageCost[sym]!;
+                    currentShares[sym] = Math.max(0, currentShares[sym]! + quantityDelta);
+                    averageCost[sym] = currentShares[sym]! > 0 ? previousCostBasis / currentShares[sym]! : 0;
+                    txIndex++;
+                    continue;
+                }
+
+                if (quantityDelta > 0) {
+                    const quantity = quantityDelta;
+                    const contributionValue = getFallbackTradeValue(tx, quantity);
+                    const previousCostBasis = currentShares[sym]! * averageCost[sym]!;
+
+                    currentShares[sym] += quantity;
+                    averageCost[sym] = currentShares[sym]! > 0
+                        ? (previousCostBasis + contributionValue) / currentShares[sym]!
+                        : 0;
+
+                    if (isBuyLike(type)) {
+                        externalFlowToday += contributionValue;
+                        cashBalance -= contributionValue;
+                        if (contributionValue > 0) {
+                            cashFlows.push({ date: getDate(tx), amount: -contributionValue });
+                        }
+                    } else if (isTransferInLike(type)) {
+                        externalFlowToday += contributionValue;
+                        if (contributionValue > 0) {
+                            cashFlows.push({ date: getDate(tx), amount: -contributionValue });
+                        }
+                    }
+                } else if (quantityDelta < 0) {
+                    const quantity = Math.abs(quantityDelta);
+                    const heldBeforeDebit = currentShares[sym]!;
+                    const debitedQuantity = Math.min(quantity, heldBeforeDebit);
+                    const debitValue = debitedQuantity * (currentPrice || averageCost[sym] || 0);
+                    const netCashAmount = getNetAmount(tx);
+                    const cashWithdrawal = netCashAmount > 0 ? netCashAmount : debitValue;
+
+                    currentShares[sym] = Math.max(0, heldBeforeDebit - quantity);
+
+                    if (currentShares[sym]! === 0) {
+                        averageCost[sym] = 0;
+                    }
+
+                    if (isSellLike(type) || isRedemptionLike(type)) {
+                        externalFlowToday -= cashWithdrawal;
+                        cashBalance += cashWithdrawal;
+                        if (cashWithdrawal > 0) {
+                            cashFlows.push({ date: getDate(tx), amount: cashWithdrawal });
+                        }
+                    } else if (isTransferOutLike(type)) {
+                        externalFlowToday -= debitValue;
+                        if (debitValue > 0) {
+                            cashFlows.push({ date: getDate(tx), amount: debitValue });
+                        }
+                    } else if (isWorthlessLike(type)) {
+                        // No external flow: the value loss remains in performance.
+                    }
+                }
+            }
+
             txIndex++;
         }
 
-        let dailyAbsoluteValue = 0;
+        let dailyHoldingsValue = 0;
         const dataPoint: PortfolioChartPoint = {
             date: dateStr,
             absoluteValue: 0,
-            relativeReturn: 0
+            relativeReturn: 0,
+            cashBalance
         };
 
         for (const sym of symbols) {
@@ -101,92 +367,46 @@ export async function buildPortfolioHistory(
 
             if (shares > 0) {
                 const priceToday = priceLookup[sym]?.[dateStr];
-                if (priceToday !== undefined) lastKnownPrices[sym] = priceToday;
+                if (priceToday !== undefined) {
+                    lastKnownPrices[sym] = priceToday;
+                }
 
                 const currentPrice = lastKnownPrices[sym] || avgCost;
                 const assetAbsolute = shares * currentPrice;
-                const assetInvested = shares * avgCost;
 
-                dailyAbsoluteValue += assetAbsolute;
+                dailyHoldingsValue += assetAbsolute;
                 dataPoint[`${sym}_absolute`] = assetAbsolute;
-                dataPoint[`${sym}_relative`] = totalInvested > 0
-                    ? ((assetAbsolute - assetInvested) / totalInvested) * 100
-                    : 0;
+                dataPoint[`${sym}_relative`] = avgCost > 0 ? ((currentPrice / avgCost) - 1) * 100 : 0;
             } else {
                 dataPoint[`${sym}_absolute`] = 0;
                 dataPoint[`${sym}_relative`] = 0;
             }
         }
 
-        dataPoint.absoluteValue = dailyAbsoluteValue;
-        if (totalInvested > 0 && dailyAbsoluteValue > 0) {
-            dataPoint.relativeReturn = ((dailyAbsoluteValue / totalInvested) - 1) * 100;
-        }
-
-        history.push(dataPoint);
-        dailySnapshots[dateStr] = {
-            shares: { ...currentShares },
-            prices: { ...lastKnownPrices }
-        };
-    }
-
-    // 6. Post-process the Snapshots to isolate true YoY Performance (Ignoring Intrayear DCA)
-    const yearlyRois: YearlyRoiData[] = [];
-    const years = Array.from(new Set(dateRange.map(d => d.substring(0, 4))));
-
-    for (let i = 0; i < years.length; i++) {
-        const year = years[i]!;
-        const daysInYear = dateRange.filter(d => d.startsWith(year));
-        if (daysInYear.length === 0) continue;
-
-        const firstDayOfYear = daysInYear[0]!;
-        const lastDayOfYear = daysInYear[daysInYear.length - 1]!;
-
-        // Snapshot of shares taken on the last day of the PREVIOUS year (or very first day for Year 1)
-        let startShares: Record<string, number>;
-        if (i > 0) {
-            const prevYearDays = dateRange.filter(d => d.startsWith(years[i - 1]!));
-            const lastDayOfPrevYear = prevYearDays[prevYearDays.length - 1]!;
-            startShares = dailySnapshots[lastDayOfPrevYear]!.shares;
-        } else {
-            startShares = dailySnapshots[firstDayOfYear]!.shares;
-        }
-
-        const startPrices = dailySnapshots[firstDayOfYear]!.prices;
-        const endPrices = dailySnapshots[lastDayOfYear]!.prices;
-
-        let portfolioStartValue = 0;
-        let portfolioEndValue = 0;
-        const assetRois: Record<string, number> = {};
-
-        for (const sym of symbols) {
-            const shares = startShares[sym] || 0;
-
-            // Only calculate if we held the asset going into the year
-            if (shares > 0.0001) {
-                const pStart = startPrices[sym] || averageCost[sym] || 0;
-                const pEnd = endPrices[sym] || pStart;
-
-                if (pStart > 0) {
-                    const valStart = shares * pStart;
-                    const valEnd = shares * pEnd;
-
-                    portfolioStartValue += valStart;
-                    portfolioEndValue += valEnd;
-                    assetRois[sym] = (pEnd / pStart) - 1;
-                }
+        if (previousHoldingsValue > 0) {
+            const dailyReturn = ((dailyHoldingsValue + incomeToday - externalFlowToday) / previousHoldingsValue) - 1;
+            if (Number.isFinite(dailyReturn) && dailyReturn > -1) {
+                cumulativeReturnFactor *= (1 + dailyReturn);
             }
         }
 
-        let portfolioRoi = 0;
-        if (portfolioStartValue > 0) {
-            portfolioRoi = (portfolioEndValue / portfolioStartValue) - 1;
-        }
-
-        if (portfolioStartValue > 0 || Object.keys(assetRois).length > 0) {
-            yearlyRois.push({ year, portfolioRoi, assetRois });
-        }
+        dataPoint.absoluteValue = dailyHoldingsValue;
+        dataPoint.relativeReturn = (cumulativeReturnFactor - 1) * 100;
+        history.push(dataPoint);
+        previousHoldingsValue = dailyHoldingsValue;
     }
 
-    return { history, yearlyRois };
+    const finalValue = Number(history[history.length - 1]?.absoluteValue || 0);
+    if (finalValue > 0) {
+        cashFlows.push({ date: history[history.length - 1]!.date, amount: finalValue });
+    }
+
+    return {
+        history,
+        yearlyRois: buildYearlyTwrReturns(history),
+        symbols: Array.from(symbols),
+        symbolNames,
+        xirr: calculateXirr(cashFlows),
+        cashBalance
+    };
 }

@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import type { Position, Transaction, PortfolioChartPoint, YearlyRoiData } from '../../logic/types';
 import { buildPortfolioHistory } from '../../logic/portfolio';
+import { getPositionCategory } from '../../logic/finance';
 import PortfolioChart from '../Chart/PortfolioChart';
 import DistributionChart from '../DistributionChart/DistributionChart';
 import { t } from '../../i18n/config';
@@ -10,9 +11,11 @@ interface Props {
     positions: Position[];
     transactions: Transaction[];
     onSelectPosition: (pos: Position) => void;
+    useExternalMarketData: boolean;
+    onBack: () => void;
 }
 
-export default function StockAnalysis({ positions, transactions, onSelectPosition }: Props) {
+export default function StockAnalysis({ positions, transactions, onSelectPosition, useExternalMarketData, onBack }: Props) {
     const [filter, setFilter] = useState<string>('ALL');
     const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
@@ -22,12 +25,21 @@ export default function StockAnalysis({ positions, transactions, onSelectPositio
     const [isStacked, setIsStacked] = useState<boolean>(false);
     const [chartData, setChartData] = useState<PortfolioChartPoint[]>([]);
     const [yearlyRois, setYearlyRois] = useState<YearlyRoiData[]>([]);
+    const [chartSymbols, setChartSymbols] = useState<string[]>([]);
+    const [chartSymbolNames, setChartSymbolNames] = useState<Record<string, string>>({});
+    const [xirr, setXirr] = useState<number | null>(null);
+    const [cashBalance, setCashBalance] = useState<number | null>(null);
     const [isChartLoading, setIsChartLoading] = useState(false);
 
     const categories = useMemo(() => {
-        const cats = new Set(positions.map(p => p.Account));
+        const cats = new Set([
+            ...positions.map(p => p.Account),
+            ...transactions
+                .filter(tx => tx.symbol && tx.shares)
+                .map(tx => getPositionCategory(tx))
+        ]);
         return Array.from(cats);
-    }, [positions]);
+    }, [positions, transactions]);
 
     const filteredAndSortedPositions = useMemo(() => {
         // Filter
@@ -45,43 +57,50 @@ export default function StockAnalysis({ positions, transactions, onSelectPositio
 
     const totalValue = filteredAndSortedPositions.reduce((sum, p) => sum + p.TotalValue, 0);
 
-    // extract symbols for the chart
-    const activeSymbols = useMemo(() => {
-        const uniqueSymbols = new Set(filteredAndSortedPositions.map(p => p.Symbol).filter(s => s !== '-'));
-        return Array.from(uniqueSymbols);
-    }, [filteredAndSortedPositions]);
-
-    // Create a mapping of Symbol (ISIN) to actual stock Name for the tooltip
-    const symbolNames = useMemo(() => {
-        const map: Record<string, string> = {};
-        filteredAndSortedPositions.forEach(p => {
-            if (p.Symbol !== '-') {
-                map[p.Symbol] = p.Name;
-            }
-        });
-        return map;
-    }, [filteredAndSortedPositions]);
-
     // Rebuild the chart whenever the user changes the filter
     useEffect(() => {
         let isMounted = true;
         async function loadChartData() {
             setIsChartLoading(true);
-            const { history, yearlyRois } = await buildPortfolioHistory(filteredAndSortedPositions, transactions);
+            const result = await buildPortfolioHistory(
+                filteredAndSortedPositions,
+                transactions,
+                useExternalMarketData,
+                filter
+            );
             if (isMounted) {
-                setChartData(history);
-                setYearlyRois(yearlyRois);
+                setChartData(result.history);
+                setYearlyRois(result.yearlyRois);
+                setChartSymbols(result.symbols || []);
+                setChartSymbolNames(result.symbolNames || {});
+                setXirr(result.xirr ?? null);
+                setCashBalance(result.cashBalance ?? null);
                 setIsChartLoading(false);
             }
         }
         loadChartData();
         return () => { isMounted = false; };
-    }, [filteredAndSortedPositions, transactions]);
+    }, [filteredAndSortedPositions, transactions, useExternalMarketData, filter]);
 
     return (
         <div className="analysis-container">
             <header className="analysis-header">
-                <h2>{t('total_portfolio')}: €{totalValue.toFixed(2)}</h2>
+                <div className="analysis-title">
+                    <button className="back-btn" onClick={onBack}>
+                        &larr; {t('back_to_transactions')}
+                    </button>
+                    <h2>{t('total_portfolio')}: €{totalValue.toFixed(2)}</h2>
+                    {cashBalance !== null && (
+                        <span className={cashBalance >= 0 ? 'cash-balance pos' : 'cash-balance neg'}>
+                            {t('cash_balance')}: €{cashBalance.toFixed(2)}
+                        </span>
+                    )}
+                    {xirr !== null && (
+                        <span className={xirr >= 0 ? 'xirr pos' : 'xirr neg'}>
+                            {t('xirr')}: {(xirr * 100).toFixed(2)}%
+                        </span>
+                    )}
+                </div>
                 <div className="header-controls">
                     <select onChange={(e) => setFilter(e.target.value)} value={filter}>
                         <option value="ALL">{t('filter_all')}</option>
@@ -134,8 +153,8 @@ export default function StockAnalysis({ positions, transactions, onSelectPositio
                     {isChartLoading ? <p>{t('loading_chart')}</p> : <PortfolioChart
                         data={chartData}
                         mode={chartMode}
-                        symbols={activeSymbols}
-                        symbolNames={symbolNames} // Passed the newly created map here
+                        symbols={chartSymbols}
+                        symbolNames={chartSymbolNames}
                         isStacked={isStacked}
                         isMerged={isMerged}
                     />}

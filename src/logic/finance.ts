@@ -1,5 +1,34 @@
 import type { Transaction, TransactionCategory, Position, RoiRecord, ChartPoint } from "./types";
 
+export function normalizeTransactionType(type: string | null | undefined): string {
+    return String(type || "")
+        .trim()
+        .toUpperCase()
+        .replace(/[\s-]+/g, "_");
+}
+
+function absoluteNumber(value: number | null | undefined): number {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.abs(numeric) : 0;
+}
+
+export function getTaxAmount(tx: Transaction): number {
+    return absoluteNumber(tx.tax);
+}
+
+export function getFeeAmount(tx: Transaction): number {
+    return absoluteNumber(tx.fee);
+}
+
+export function getNetAmount(tx: Transaction): number {
+    return Math.max(0, absoluteNumber(tx.amount) - getTaxAmount(tx) - getFeeAmount(tx));
+}
+
+export function isIncomeTransaction(tx: Transaction): boolean {
+    const type = normalizeTransactionType(tx.type);
+    return type === "DIVIDEND" || type === "INTEREST" || type === "INTEREST_PAYMENT";
+}
+
 export function categorizeTransaction(tx: Transaction): TransactionCategory {
     if (["CARD_TRANSACTION", "CARD_TRANSACTION_INTERNATIONAL"].includes(tx.type)) {
         return tx.mcc_code === "6011" ? "ATM_WITHDRAWAL" : "DAILY_SPENDING";
@@ -23,11 +52,55 @@ export function categorizeTransaction(tx: Transaction): TransactionCategory {
     return "UNCLASSIFIED";
 }
 
-function getPositionCategory(tx: Transaction): string {
+export function getPositionCategory(tx: Transaction): string {
     if (tx.asset_class === "CRYPTO" || tx.symbol === "BTC" || tx.symbol === "ETH") return "CRYPTO";
     if (tx.asset_class === "BOND") return "BOND";
     if (tx.asset_class === "PRIVATE_FUND") return "PRIVATE_EQUITY";
     return tx.account_type;
+}
+
+export function getTradeQuantityDelta(tx: Transaction): number | null {
+    const rawShares = Number(tx.shares);
+    if (!Number.isFinite(rawShares) || rawShares === 0) {
+        return null;
+    }
+
+    const quantity = Math.abs(rawShares);
+    const type = normalizeTransactionType(tx.type);
+
+    if (type.includes("BUY")) {
+        return quantity;
+    }
+
+    if (type.includes("SELL")) {
+        return -quantity;
+    }
+
+    if (
+        type.includes("TRANSFER_IN") ||
+        type.includes("FREE_RECEIPT") ||
+        type.includes("INBOUND") ||
+        type.includes("RECEIPT")
+    ) {
+        return quantity;
+    }
+
+    if (
+        type.includes("TRANSFER_OUT") ||
+        type.includes("OUTBOUND") ||
+        type.includes("BOOK_OUT") ||
+        type.includes("AUSBUCH") ||
+        type.includes("REDEMPTION") ||
+        type.includes("TILGUNG") ||
+        type.includes("MATURITY") ||
+        type.includes("EXPIR") ||
+        type.includes("WORTHLESS") ||
+        type.includes("DELIST")
+    ) {
+        return -quantity;
+    }
+
+    return rawShares;
 }
 
 export function calculatePositions(transactions: Transaction[]): Position[] {
@@ -51,11 +124,16 @@ export function calculatePositions(transactions: Transaction[]): Position[] {
 
         if (tx.category === "CASH" || !tx.shares) continue;
 
-        const qty = Number(tx.shares);
-        map[key].Quantity = Math.round((map[key].Quantity + qty) * 1000000) / 1000000;
+        const quantityDelta = getTradeQuantityDelta(tx);
+        if (quantityDelta === null) continue;
 
-        if (tx.type === "BUY" && tx.price) {
-            map[key].PendingCash -= (qty * Number(tx.price));
+        map[key].Quantity = Math.round((map[key].Quantity + quantityDelta) * 1000000) / 1000000;
+        if (map[key].Quantity < 0.000001) {
+            map[key].Quantity = 0;
+        }
+
+        if (String(tx.type || "").toUpperCase().includes("BUY") && tx.price) {
+            map[key].PendingCash -= (Math.abs(quantityDelta) * Number(tx.price));
         }
 
         if (tx.price && Number(tx.price) > 0) {

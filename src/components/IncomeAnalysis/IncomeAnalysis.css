@@ -1,0 +1,213 @@
+.income-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    animation: fadeIn 0.3s ease;
+}
+
+.income-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    border-bottom: 0.1vh solid var(--border-color);
+    padding-bottom: var(--spacing-sm);
+
+    h2 {
+        margin: 0;
+    }
+}
+
+.income-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(9rem, 1fr));
+    gap: 1vw;
+    width: min(54vw, 48rem);
+}
+
+.income-metric {
+    background: var(--bg-secondary);
+    border: 0.1vh solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-sm) 1vw;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4vh;
+
+    span {
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+    }
+
+    strong {
+        color: var(--text-primary);
+        font-size: 1rem;
+    }
+
+    &.dividend strong {
+        color: var(--positive-color);
+    }
+
+    &.interest strong {
+        color: #38bdf8;
+    }
+}
+
+.income-chart-section {
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    min-height: 54vh;
+
+    h3 {
+        margin: 0;
+    }
+}
+
+.income-chart-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+}
+
+.income-chart-controls {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.8vw;
+}
+
+.income-series-controls {
+    display: flex;
+    gap: 0.7vw;
+}
+
+.income-control {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4vh;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+
+    select,
+    input {
+        background: var(--bg-primary);
+        border: 0.1vh solid var(--border-color);
+        border-radius: var(--border-radius);
+        color: var(--text-primary);
+        padding: 0.5vh 0.8vw;
+        font-size: 0.85rem;
+        min-height: 2rem;
+    }
+}
+
+.series-toggle {
+    background-color: transparent;
+    border: 0.1vh solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    padding: 0.5vh 1vw;
+
+    &.active {
+        color: var(--text-primary);
+    }
+
+    &.dividend.active {
+        background-color: var(--positive-color);
+        border-color: var(--positive-color);
+    }
+
+    &.interest.active {
+        background-color: #0284c7;
+        border-color: #0284c7;
+    }
+
+    &:hover {
+        background-color: var(--bg-primary);
+    }
+}
+
+.range-reset {
+    background-color: transparent;
+    border: 0.1vh solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    min-height: 2rem;
+    padding: 0.5vh 1vw;
+
+    &:hover {
+        background-color: var(--bg-primary);
+    }
+}
+
+.income-chart-wrapper {
+    width: 100%;
+    flex: 1;
+    min-height: 42vh;
+}
+
+.income-empty {
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.income-tooltip {
+    background-color: var(--bg-secondary);
+    border: 0.1vh solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-sm) 1vw;
+    box-shadow: 0 0.5vh 1.2vh rgb(0 0 0 / 0.2);
+
+    .tooltip-label {
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        margin-bottom: 0.6vh;
+    }
+
+    .tooltip-entry,
+    .tooltip-total {
+        color: var(--text-primary);
+        font-size: 0.9rem;
+        white-space: nowrap;
+    }
+
+    .tooltip-entry {
+        margin-bottom: 0.4vh;
+    }
+
+    .tooltip-dot {
+        margin-right: 0.5vw;
+    }
+
+    .tooltip-total {
+        border-top: 0.1vh solid var(--border-color);
+        margin-top: 0.6vh;
+        padding-top: 0.6vh;
+        font-weight: 700;
+    }
+}
+
+@media (max-width: 800px) {
+    .income-header {
+        flex-direction: column;
+    }
+
+    .income-summary {
+        grid-template-columns: 1fr;
+        width: 100%;
+    }
+
+    .income-chart-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .income-chart-controls {
+        justify-content: flex-start;
+    }
+}

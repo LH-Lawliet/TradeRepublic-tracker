@@ -14,7 +14,13 @@ import {
     Cell
 } from 'recharts';
 import type { Transaction } from '../../logic/types';
-import { processCashTransactions, type ExpenseRecord, type MonthlyExpenseChartData } from '../../logic/cash';
+import {
+    processCashTransactions,
+    type CashBalancePoint,
+    type CashMovementRecord,
+    type ExpenseRecord,
+    type MonthlyExpenseChartData
+} from '../../logic/cash';
 import { t } from '../../i18n/config';
 import './CashAnalysis.css';
 
@@ -22,12 +28,18 @@ interface Props {
     transactions: Transaction[];
 }
 
+function formatMoney(value: number) {
+    return `€${Number(value).toFixed(2)}`;
+}
+
 export default function CashAnalysis({ transactions }: Props) {
     const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
+    const [cashMovements, setCashMovements] = useState<CashMovementRecord[]>([]);
+    const [cashBalanceData, setCashBalanceData] = useState<CashBalancePoint[]>([]);
+    const [currentCashBalance, setCurrentCashBalance] = useState(0);
     const [chartData, setChartData] = useState<MonthlyExpenseChartData[]>([]);
     const [uniqueCategories, setUniqueCategories] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         let isMounted = true;
@@ -37,6 +49,9 @@ export default function CashAnalysis({ transactions }: Props) {
             const data = await processCashTransactions(transactions);
             if (isMounted) {
                 setExpenses(data.expenses);
+                setCashMovements(data.cashMovements);
+                setCashBalanceData(data.cashBalanceData);
+                setCurrentCashBalance(data.currentCashBalance);
                 setChartData(data.chartData);
                 setUniqueCategories(data.uniqueCategories);
                 setIsLoading(false);
@@ -47,19 +62,14 @@ export default function CashAnalysis({ transactions }: Props) {
         return () => { isMounted = false; };
     }, [transactions]);
 
-    const handleImageError = (id: string) => {
-        setImageErrors(prev => ({ ...prev, [id]: true }));
-    };
-
     if (isLoading) {
         return <div className="cash-container"><p>{t('cash_loading')}</p></div>;
     }
 
-    if (expenses.length === 0) {
+    if (expenses.length === 0 && cashMovements.length === 0) {
         return <div className="cash-container"><p>{t('cash_no_data')}</p></div>;
     }
 
-    // Calculate total spent per category to determine sorting order
     const categoryTotals = expenses.reduce((acc, exp) => {
         acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
         return acc;
@@ -69,7 +79,6 @@ export default function CashAnalysis({ transactions }: Props) {
         (a, b) => (categoryTotals[b] || 0) - (categoryTotals[a] || 0)
     );
 
-    // Calculate the total for each month to use for the top label
     const chartDataWithTotals = chartData.map(monthData => {
         const monthTotal = sortedCategories.reduce(
             (sum, cat) => sum + (Number(monthData[cat]) || 0),
@@ -78,115 +87,164 @@ export default function CashAnalysis({ transactions }: Props) {
         return { ...monthData, monthTotal };
     });
 
-    // Format data specifically for the lifelong Pie Chart
     const pieData = sortedCategories.map(category => {
-        // Find the color from the first expense that matches this category
         const color = expenses.find(e => e.category === category)?.color || "#8884d8";
         return {
             name: category,
             value: categoryTotals[category],
-            color: color
+            color
         };
-    }).filter(data => data.value! > 0); // Exclude categories with 0 expense
+    }).filter(data => data.value! > 0);
 
     return (
         <div className="cash-container">
             <header className="cash-header">
                 <h2>{t('expense_analysis')}</h2>
-                <div className="stats">
-                    {t('total_tracked')}: €{expenses.reduce((sum, e) => sum + e.amount, 0).toFixed(2)}
+                <div className="cash-stats">
+                    <div className={currentCashBalance >= 0 ? 'stat positive' : 'stat negative'}>
+                        <span>{t('cash_balance')}</span>
+                        <strong>{formatMoney(currentCashBalance)}</strong>
+                    </div>
+                    <div className="stat spending">
+                        <span>{t('total_tracked')}</span>
+                        <strong>{formatMoney(expenses.reduce((sum, e) => sum + e.amount, 0))}</strong>
+                    </div>
                 </div>
             </header>
 
+            <div className="chart-section cash-balance-section">
+                <h3>{t('cash_balance_history')}</h3>
+                {cashBalanceData.length === 0 ? (
+                    <p className="cash-empty">{t('no_chart_data')}</p>
+                ) : (
+                    <div className="chart-wrapper">
+                        <ResponsiveContainer width="100%" height={320}>
+                            <ComposedChart
+                                data={cashBalanceData}
+                                margin={{ top: 20, right: 10, left: 0, bottom: 0 }}
+                            >
+                                <XAxis
+                                    dataKey="date"
+                                    stroke="#94a3b8"
+                                    tick={{ fill: '#94a3b8', fontSize: '0.8rem' }}
+                                    minTickGap={40}
+                                />
+                                <YAxis
+                                    stroke="#94a3b8"
+                                    tick={{ fill: '#94a3b8', fontSize: '0.8rem' }}
+                                    tickFormatter={(value) => `€${Number(value).toFixed(0)}`}
+                                />
+                                <Tooltip formatter={(value: any) => formatMoney(Number(value))} />
+                                <Line
+                                    type="monotone"
+                                    dataKey="balance"
+                                    name={t('cash_balance')}
+                                    stroke="#38bdf8"
+                                    strokeWidth={2}
+                                    dot={false}
+                                    activeDot={{ r: 4 }}
+                                />
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    </div>
+                )}
+            </div>
+
             <div className="chart-section">
                 <h3>{t('monthly_spending')}</h3>
-                <div className="chart-wrapper">
-                    <ResponsiveContainer width="100%" height={400}>
-                        <ComposedChart
-                            data={chartDataWithTotals}
-                            margin={{ top: 30, right: 10, left: 0, bottom: 0 }}
-                        >
-                            <XAxis
-                                dataKey="month"
-                                stroke="#94a3b8"
-                                tick={{ fill: '#94a3b8', fontSize: '0.8rem' }}
-                            />
-                            <YAxis
-                                stroke="#94a3b8"
-                                tick={{ fill: '#94a3b8', fontSize: '0.8rem' }}
-                                tickFormatter={(val) => `€${val}`}
-                            />
-                            <Tooltip
-                                shared={false}
-                                formatter={(value: any) => `€${Number(value).toFixed(2)}`}
-                            />
-                            <Legend wrapperStyle={{ fontSize: '0.8rem', color: '#94a3b8' }} />
-
-                            {/* Render the stacked bars globally sorted */}
-                            {sortedCategories.map((category) => {
-                                const color = expenses.find(e => e.category === category)?.color || "#8884d8";
-
-                                return (
-                                    <Bar
-                                        key={category}
-                                        dataKey={(row) => row[category] as number}
-                                        name={category}
-                                        stackId="a"
-                                        fill={color}
-                                    />
-                                );
-                            })}
-
-                            {/* Invisible Line that floats perfectly at the top of the stack to hold the labels */}
-                            <Line
-                                dataKey="monthTotal"
-                                type="monotone"
-                                stroke="transparent"
-                                dot={false}
-                                activeDot={false}
-                                legendType="none"
+                {expenses.length === 0 ? (
+                    <p className="cash-empty">{t('cash_no_expenses')}</p>
+                ) : (
+                    <div className="chart-wrapper">
+                        <ResponsiveContainer width="100%" height={400}>
+                            <ComposedChart
+                                data={chartDataWithTotals}
+                                margin={{ top: 30, right: 10, left: 0, bottom: 0 }}
                             >
-                                <LabelList
-                                    dataKey="monthTotal"
-                                    position="top"
-                                    fill="#94a3b8"
-                                    fontSize="0.8rem"
-                                    formatter={(val: any) => {
-                                        const num = Number(val);
-                                        return num > 0 ? `€${num.toFixed(2)}` : '';
-                                    }}
+                                <XAxis
+                                    dataKey="month"
+                                    stroke="#94a3b8"
+                                    tick={{ fill: '#94a3b8', fontSize: '0.8rem' }}
                                 />
-                            </Line>
-                        </ComposedChart>
-                    </ResponsiveContainer>
-                </div>
+                                <YAxis
+                                    stroke="#94a3b8"
+                                    tick={{ fill: '#94a3b8', fontSize: '0.8rem' }}
+                                    tickFormatter={(value) => `€${Number(value).toFixed(0)}`}
+                                />
+                                <Tooltip
+                                    shared={false}
+                                    formatter={(value: any) => formatMoney(Number(value))}
+                                />
+                                <Legend wrapperStyle={{ fontSize: '0.8rem', color: '#94a3b8' }} />
+
+                                {sortedCategories.map((category) => {
+                                    const color = expenses.find(e => e.category === category)?.color || "#8884d8";
+
+                                    return (
+                                        <Bar
+                                            key={category}
+                                            dataKey={(row) => row[category] as number}
+                                            name={category}
+                                            stackId="a"
+                                            fill={color}
+                                        />
+                                    );
+                                })}
+
+                                <Line
+                                    dataKey="monthTotal"
+                                    type="monotone"
+                                    stroke="transparent"
+                                    dot={false}
+                                    activeDot={false}
+                                    legendType="none"
+                                >
+                                    <LabelList
+                                        dataKey="monthTotal"
+                                        position="top"
+                                        fill="#94a3b8"
+                                        fontSize="0.8rem"
+                                        formatter={(value: any) => {
+                                            const total = Number(value);
+                                            return total > 0 ? formatMoney(total) : '';
+                                        }}
+                                    />
+                                </Line>
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    </div>
+                )}
             </div>
 
             <div className="chart-section">
                 <h3>{t('lifelong_category_expenses')}</h3>
-                <div className="chart-wrapper">
-                    <ResponsiveContainer width="100%" height={400}>
-                        <PieChart>
-                            <Pie
-                                data={pieData}
-                                labelLine={true}
-                                label={({ name, percent }) => `${name} ${(percent! * 100).toFixed(0)}%`}
-                                fill="#8884d8"
-                                dataKey="value"
-                            >
-                                {pieData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                            </Pie>
-                            <Tooltip formatter={(value: any) => `€${Number(value).toFixed(2)}`} />
-                            <Legend wrapperStyle={{ fontSize: '0.8rem', color: '#94a3b8' }} />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
+                {expenses.length === 0 ? (
+                    <p className="cash-empty">{t('cash_no_expenses')}</p>
+                ) : (
+                    <div className="chart-wrapper">
+                        <ResponsiveContainer width="100%" height={400}>
+                            <PieChart>
+                                <Pie
+                                    data={pieData}
+                                    labelLine={true}
+                                    label={({ name, percent }) => `${name} ${(percent! * 100).toFixed(0)}%`}
+                                    fill="#8884d8"
+                                    dataKey="value"
+                                >
+                                    {pieData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <Tooltip formatter={(value: any) => formatMoney(Number(value))} />
+                                <Legend wrapperStyle={{ fontSize: '0.8rem', color: '#94a3b8' }} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                )}
             </div>
 
             <div className="table-section">
-                <h3>{t('trade_history')}</h3>
+                <h3>{t('cash_movements')}</h3>
                 <div className="table-scroll">
                     <table>
                         <thead>
@@ -198,37 +256,31 @@ export default function CashAnalysis({ transactions }: Props) {
                             </tr>
                         </thead>
                         <tbody>
-                            {expenses.map((exp) => (
-                                <tr key={exp.id}>
-                                    <td>{exp.date}</td>
+                            {cashMovements.map((movement) => (
+                                <tr key={movement.id}>
+                                    <td>{movement.date}</td>
                                     <td className="merchant-cell">
                                         <div className="logo-container">
-                                            {!imageErrors[exp.id] && exp.logoUrl ? (
-                                                <img
-                                                    src={exp.logoUrl}
-                                                    alt="logo"
-                                                    onError={() => handleImageError(exp.id)}
-                                                />
-                                            ) : (
-                                                <div
-                                                    className="logo-fallback"
-                                                    style={{ backgroundColor: exp.color }}
-                                                >
-                                                    {exp.merchant.charAt(0).toUpperCase()}
-                                                </div>
-                                            )}
+                                            <div
+                                                className="logo-fallback"
+                                                style={{ backgroundColor: movement.color }}
+                                            >
+                                                {movement.label.charAt(0).toUpperCase()}
+                                            </div>
                                         </div>
-                                        <span>{exp.merchant}</span>
+                                        <span>{movement.label}</span>
                                     </td>
                                     <td>
                                         <span
                                             className="category-badge"
-                                            style={{ backgroundColor: `${exp.color}33`, color: exp.color }}
+                                            style={{ backgroundColor: `${movement.color}33`, color: movement.color }}
                                         >
-                                            {exp.category}
+                                            {movement.category}
                                         </span>
                                     </td>
-                                    <td className="amount-cell">€{exp.amount.toFixed(2)}</td>
+                                    <td className={movement.amount >= 0 ? 'amount-cell positive' : 'amount-cell negative'}>
+                                        {movement.amount >= 0 ? '+' : '-'}{formatMoney(Math.abs(movement.amount))}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
