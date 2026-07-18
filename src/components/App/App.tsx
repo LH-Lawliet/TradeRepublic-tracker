@@ -59,6 +59,7 @@ export default function App() {
           positions={positions}
           transactions={transactions}
           onSelectPosition={handleSelectPosition}
+          onBack={() => setView('TRANSACTIONS')}
         />
       )}
 

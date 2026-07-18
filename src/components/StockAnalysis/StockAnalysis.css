@@ -5,6 +5,16 @@
     height: 90vh;
 }
 
+.back-btn {
+    align-self: flex-start;
+    background: transparent;
+    border: 0.1vh solid var(--border-color);
+
+    &:hover {
+        background: var(--bg-secondary);
+    }
+}
+
 .analysis-header {
     display: flex;
     justify-content: space-between;

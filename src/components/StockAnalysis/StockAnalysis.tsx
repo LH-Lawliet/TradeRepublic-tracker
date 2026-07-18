@@ -10,9 +10,10 @@ interface Props {
     positions: Position[];
     transactions: Transaction[];
     onSelectPosition: (pos: Position) => void;
+    onBack: () => void;
 }
 
-export default function StockAnalysis({ positions, transactions, onSelectPosition }: Props) {
+export default function StockAnalysis({ positions, transactions, onSelectPosition, onBack }: Props) {
     const [filter, setFilter] = useState<string>('ALL');
     const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
@@ -80,6 +81,7 @@ export default function StockAnalysis({ positions, transactions, onSelectPositio
 
     return (
         <div className="analysis-container">
+            <button className="back-btn" onClick={onBack}>&larr; {t('back_to_transactions')}</button>
             <header className="analysis-header">
                 <h2>{t('total_portfolio')}: €{totalValue.toFixed(2)}</h2>
                 <div className="header-controls">
